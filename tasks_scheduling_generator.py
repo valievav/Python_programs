@@ -1,5 +1,6 @@
 import openpyxl, os, datetime
 from openpyxl.utils.cell import get_column_letter
+from openpyxl.styles import NamedStyle
 
 
 def generate_schedule(file_name, file_data, iterations_gap, iterations_number, cwd=None):
@@ -37,29 +38,47 @@ def generate_schedule(file_name, file_data, iterations_gap, iterations_number, c
                 next_date += datetime.timedelta(1)
             all_tasks[task].append(next_date)
 
-    # create new sheet for results
+    # (re)create new sheet for results
     sheet_name = "Tasks_and_execution_dates"
-    if sheet_name not in wb.sheetnames:
-        wb.create_sheet(sheet_name)
-        print(f"Created new sheet '{sheet_name}' in '{file_name}'")
+    if sheet_name in wb.sheetnames:
+        del wb[sheet_name]
+        print(f"Removed previous '{sheet_name}' sheet in '{file_name}")
+
+    wb.create_sheet(sheet_name)
+    print(f"Created new sheet '{sheet_name}' in '{file_name}'")
     result_sheet = wb[sheet_name]
 
-    # record all tasks in new sheet
-    n = 1
+    # record headers
+    headers = ["Tasks", "Last date", "Next date"]
+    i = 0
+    for i in range(1, len(headers)+1):
+        result_sheet[f"{get_column_letter(i)}1"] = headers[i-1]
+        i += 1
+    iterations_delta = iterations_number - 1
+    if iterations_delta != 0:
+        for iteration in range(1, iterations_delta+1):
+            result_sheet[f"{get_column_letter(i)}1"] = headers[-1]
+            i += 1
+
+    # record all tasks with dates in new sheet
+    n = 2
+    date_style = NamedStyle(name="datetime", number_format="MM/DD/YYYY")
     for task in all_tasks.keys():
         result_sheet[f"A{n}"] = task
         for i in range(1, len(all_tasks[task])+1):
-            result_sheet[f"{get_column_letter(i+1)}{n}"] = all_tasks[task][i-1]
+            date_cell = result_sheet[f"{get_column_letter(i+1)}{n}"]
+            date_cell.value = all_tasks[task][i-1]
+            date_cell.style = date_style
         n += 1
     print(f"Recorded results into '{sheet_name}' sheet")
     wb.save(file_name)
 
 
-working_directory = "D:\\Practice Python\\Tasks schedule generator"
+working_directory = r"D:\Practice Python\Tasks schedule generator"
 file_name = "Tasks_schedule.xlsx"
 file_data = {"sheet_name": "Schedule", "tasks_col": 1, "date_col": 2}
 iterations_gap = datetime.timedelta(90)
-iterations_number = 2
+iterations_number = 4
 
 generate_schedule(file_name, file_data, iterations_gap, iterations_number, working_directory)
 
