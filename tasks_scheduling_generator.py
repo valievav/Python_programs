@@ -1,10 +1,12 @@
 import openpyxl, os, datetime
 from openpyxl.utils.cell import get_column_letter
+from operator import itemgetter
 
 
-def generate_schedule(file_name, file_data, iterations_gap, iterations_number, cwd=None):
+def generate_schedule(file_name, file_data, iterations_gap, iterations_number, date_format,
+                      tasks_execution_sheet_name, schedule_sheet_name, cwd=None):
 
-    # switch to cwd if passes as argument
+    # switch to cwd if passed as an argument
     if cwd:
         if not os.path.isdir(cwd):
             os.mkdir(cwd)
@@ -18,7 +20,7 @@ def generate_schedule(file_name, file_data, iterations_gap, iterations_number, c
     wb = openpyxl.load_workbook(file_name)
     sheet = wb[sheet_name]
 
-    all_tasks = {}
+    all_tasks = {}  # TODO - rewrite to list of lists - easier to sort
     max_row = sheet.max_row
     for i in range(2, max_row+1):  # skip header
         task = sheet.cell(row=i, column=tasks_col).value
@@ -37,37 +39,21 @@ def generate_schedule(file_name, file_data, iterations_gap, iterations_number, c
                 next_date += datetime.timedelta(1)
             all_tasks[task].append(next_date)
 
-    # (re)create new sheet for results
-    sheet_name = "Tasks_and_execution_dates"
-    if sheet_name in wb.sheetnames:
-        del wb[sheet_name]
-        print(f"Removed previous '{sheet_name}' sheet in '{file_name}")
-
-    wb.create_sheet(sheet_name)
-    print(f"Created new sheet '{sheet_name}' in '{file_name}'")
-    result_sheet = wb[sheet_name]
-
-    # record headers
-    headers = ["Tasks", "Last date", "Next date"]
-    column = 0
-    for column in range(1, len(headers)+1):
-        result_sheet[f"{get_column_letter(column)}1"] = headers[column-1]
-        column += 1
-    iterations_delta = iterations_number - 1
-    if iterations_delta != 0:
-        for iteration in range(1, iterations_delta+1):
-            result_sheet[f"{get_column_letter(column)}1"] = headers[-1]
-            column += 1
+    # (re)create new sheet for task-dates results
+    if tasks_execution_sheet_name in wb.sheetnames:
+        del wb[tasks_execution_sheet_name]
+    wb.create_sheet(tasks_execution_sheet_name)
+    print(f"Recreated '{tasks_execution_sheet_name}' sheet")
+    result_sheet = wb[tasks_execution_sheet_name]
 
     # record all tasks with dates in new sheet
-    row = 2
+    row = 1
     for task in all_tasks.keys():
         result_sheet[f"A{row}"] = task
-        for i in range(1, len(all_tasks[task])+1):
-            date_cell = result_sheet[f"{get_column_letter(i+1)}{row}"]
-            date_cell.value = all_tasks[task][i-1]  # record value
-            date_cell.number_format = "MM/DD/YYYY"  # set date format
-
+        for col in range(1, len(all_tasks[task])+1):
+            date_cell = result_sheet[f"{get_column_letter(col+1)}{row}"]
+            date_cell.value = all_tasks[task][col-1]  # record value
+            date_cell.number_format = date_format  # set date format
         row += 1
 
     # set column width
@@ -77,7 +63,29 @@ def generate_schedule(file_name, file_data, iterations_gap, iterations_number, c
     for i in range(2, iterations_number+3):
         result_sheet.column_dimensions[get_column_letter(i)].width = date_max_len
 
-    print(f"Recorded results into '{sheet_name}' sheet")
+    print(f"    Recorded results into '{tasks_execution_sheet_name}' sheet")
+
+    # sort records and prepare task schedule
+    tasks_schedule = []
+    for i in range(iterations_number+1):
+        for task in all_tasks.keys():
+            tasks_schedule.append([task, all_tasks[task][i]])
+
+    tasks_schedule = sorted(tasks_schedule, key=itemgetter(1))
+
+    # (re)create new sheet for schedule
+    if schedule_sheet_name in wb.sheetnames:
+        del wb[schedule_sheet_name]
+    wb.create_sheet(schedule_sheet_name)
+    print(f"Recreated '{schedule_sheet_name}' sheet")
+    result_sheet = wb[schedule_sheet_name]
+
+    # populate sheet with schedule data
+    for row in range(len(tasks_schedule)):
+        for col in range(len(tasks_schedule[row])):
+            result_sheet[f"{get_column_letter(col+1)}{row+1}"] = tasks_schedule[row][col]
+    print(f"    Recorded schedule into '{schedule_sheet_name}' sheet\nProcess finished")
+
     wb.save(file_name)
 
 
@@ -86,6 +94,10 @@ file_name = "Tasks_schedule.xlsx"
 file_data = {"sheet_name": "Schedule", "tasks_col": 1, "date_col": 2}
 iterations_gap = datetime.timedelta(90)
 iterations_number = 4
+date_format = "MM/DD/YYYY"
+tasks_execution_sheet_name = "Tasks_and_execution_dates"
+schedule_sheet_name = "Tasks_schedule"
 
-generate_schedule(file_name, file_data, iterations_gap, iterations_number, working_directory)
+generate_schedule(file_name, file_data, iterations_gap, iterations_number, date_format,
+                  tasks_execution_sheet_name, schedule_sheet_name, working_directory)
 
