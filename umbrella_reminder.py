@@ -88,6 +88,8 @@ if __name__ == "__main__":
     results = ''
     if rain_hours:
         results += f"ATTENTION!>>> Please take your UMBRELLA. It's going to rain at around {', '.join(rain_hours)}.\n"
+    else:
+        results += "No rain forecasted. You can leave umbrella at home.\n"
     if show_forecast:
         results += f"{print_separator}\nShort weather forecast for the next {number_of_results * 3} hours for city {city_name.upper()}:\n"
         for v, k in forecast_weather.items():
