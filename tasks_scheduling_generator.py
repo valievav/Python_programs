@@ -6,7 +6,7 @@ from operator import itemgetter
 
 
 def generate_schedule(file_name, schedule_data, iteration_days, iteration_number, date_format,
-                      tasks_execution_sheet_name, schedule_sheet_name, cwd=None):
+                      tasks_execution_sheet_name, schedule_sheet_name, file_name_final, cwd=None):
     """
     Generates and records task schedule into Excel workbook based on the task-date input.\n
     To do that it creates all_tasks dictionary with all tasks, their last run date and next iterations run dates.
@@ -20,6 +20,7 @@ def generate_schedule(file_name, schedule_data, iteration_days, iteration_number
     :param date_format: str
     :param tasks_execution_sheet_name: str
     :param schedule_sheet_name: str
+    :param file_name_final: .xlsx file
     :param cwd: valid path
     :return:
     """
@@ -44,9 +45,13 @@ def generate_schedule(file_name, schedule_data, iteration_days, iteration_number
         task = sheet.cell(row=i, column=tasks_col).value
         date = sheet.cell(row=i, column=date_col).value
         if task not in all_tasks.keys():  # record unique tasks
-            all_tasks.setdefault(task, [date])
-        if date > all_tasks[task][0]:  # overwrite with most recent date
-            all_tasks[task] = [date]
+            all_tasks.setdefault(task, [date])  # record all date (including None)
+        if not all_tasks[task][0]:
+            all_tasks[task] = [date]  # record current date if previous date is None
+        else:
+            if date:  # skip rows w/o date (don't overwrite with None date)
+                if date > all_tasks[task][0]:  # overwrite with most recent date
+                    all_tasks[task] = [date]
 
     # calculate next execution day
     for task in all_tasks.keys():
@@ -104,7 +109,7 @@ def generate_schedule(file_name, schedule_data, iteration_days, iteration_number
             result_sheet[f"{get_column_letter(col+1)}{row+1}"] = tasks_schedule[row][col]
     print(f"    Recorded schedule into '{schedule_sheet_name}' sheet\nProcess finished")
 
-    wb.save(file_name)
+    wb.save(file_name_final)  # save results in separate file to avoid original file corruption
 
 
 if __name__ == "__main__":
@@ -117,7 +122,8 @@ if __name__ == "__main__":
     date_formatting = "MM/DD/YYYY"
     tasks_execution_sheet = "Tasks_and_execution_dates"
     schedule_sheet = "Tasks_schedule"
+    file_final = "Tasks_schedule_final.xlsx"
 
     generate_schedule(file, file_data, iterations_days, iterations_number, date_formatting,
-                      tasks_execution_sheet, schedule_sheet)
+                      tasks_execution_sheet, schedule_sheet, file_final, working_directory)
 
