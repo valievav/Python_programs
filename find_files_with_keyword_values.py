@@ -5,11 +5,13 @@ import logging
 
 def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=None, file_name_keyword="", search_sheet=None):
     """
-    Finds excel files that contain keyword values.\n
-    Function processes only files that have certain keyword in the file name and '.xlsx' extension.\n
+    Finds excel files that contain certain keyword values.\n
     It iterates through all files from the specified directory including subfolders.\n
+    It can run search in all files as well as in file with specific keyword in file name.
+    It can also search values in all spreadsheets as well as in specific spreadsheet.\n
     :param cell_keywords: list
     :param cwd: absolute path, optional
+    :param exclusion_folder: str, optional
     :param file_name_keyword: str, optional (if not passed, function processes all excel files)
     :param search_sheet: str, optional (if not passed, function processes all worksheets)
     :return:
@@ -73,8 +75,8 @@ if __name__ == "__main__":
     search_keywords = ["Castlevania", "Final Fantasy"]
     sheet_name = "Sheet1"
     working_directory = "D:\\Practice Python"
-    exclusion_folder = "Top Secret"
+    exclusion_folder_name = "Top Secret"
 
     logging.disable(logging.DEBUG)
-    find_files_with_keyword_values(search_keywords, cwd=working_directory, exclusion_folder=exclusion_folder)
+    find_files_with_keyword_values(search_keywords, cwd=working_directory, exclusion_folder=exclusion_folder_name)
 
