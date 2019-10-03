@@ -1,7 +1,9 @@
-import os, openpyxl
+import os
+import openpyxl
+import logging
 
 
-def find_files_with_keyword_values(cell_keywords, cwd=None, file_name_keyword="", search_sheet=None):
+def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=None, file_name_keyword="", search_sheet=None):
     """
     Finds excel files that contain keyword values.\n
     Function processes only files that have certain keyword in the file name and '.xlsx' extension.\n
@@ -13,22 +15,29 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, file_name_keyword=""
     :return:
     """
 
-
-    def search_keyword_in_file(sheet, cell_keywords, abs_path):
+    def search_keyword_in_file(wb, sheet_name, cell_keywords, abs_path):
 
         for cell_keyword in cell_keywords:
-            for row in sheet.values:
+            for row in wb[sheet_name].values:
                 for cell in row:
                     if cell_keyword.lower() in str(cell).lower():
-                        print(f"    >>> Found keyword '{cell_keyword}'. See file {abs_path}.")
+                        print(f"    >>> Found keyword '{cell_keyword}': cell value '{cell}', sheet '{sheet_name}', file '{abs_path}'")
 
+    logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
 
     # switch to cwd if passed as param
     if cwd:
         os.chdir(cwd)
     
     # walk the directory tree
+    print("Process started...")
     for active_folder, subfolders, files in os.walk('.'):
+
+        # skip exclusion folder from search if passed as param
+        if exclusion_folder:
+            if exclusion_folder in active_folder.split(os.sep):
+                print(f"Excluded '{active_folder}' from search as it contains exclusion folder '{exclusion_folder}'")
+                continue
 
         for file in files:
             file_path = os.path.join(active_folder, file)
@@ -36,7 +45,7 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, file_name_keyword=""
 
             # search for excel files only
             if file.endswith('xlsx'):
-                print(f"Processing {abs_path} ...")
+                logging.debug(f"Processing {abs_path} ...")
 
                 # search for files with keyword in name
                 if file_name_keyword.lower() in file.lower():
@@ -51,19 +60,21 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, file_name_keyword=""
                         # search keyword in excel values for specific sheet or for all sheets
                         if search_sheet:
                             if search_sheet in wb.sheetnames:
-                                sheet = wb[sheet_name]
-                                search_keyword_in_file(sheet, cell_keywords, abs_path)
+                                search_keyword_in_file(wb, search_sheet, cell_keywords, abs_path)
                         else:
                             for active_sheet in wb.sheetnames:
-                                sheet = wb[active_sheet]
-                                search_keyword_in_file(sheet, cell_keywords, abs_path)
+                                search_keyword_in_file(wb, active_sheet, cell_keywords, abs_path)
+
+    print("Process finished.")
 
 
+if __name__ == "__main__":
+    file_keyword = "file"
+    search_keywords = ["Castlevania", "Final Fantasy"]
+    sheet_name = "Sheet1"
+    working_directory = "D:\\Practice Python"
+    exclusion_folder = "Top Secret"
 
-file_keyword = "file"
-cell_keyword_list = ["Castlevania", "Final Fantasy"]
-sheet_name = "Sheet1"
-working_directory = "D:\\Practice Python"
-
-find_files_with_keyword_values(cell_keyword_list, working_directory)
+    logging.disable(logging.DEBUG)
+    find_files_with_keyword_values(search_keywords, cwd=working_directory, exclusion_folder=exclusion_folder)
 
