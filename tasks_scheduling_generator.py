@@ -3,7 +3,6 @@ import os
 import datetime
 from openpyxl.utils.cell import get_column_letter
 from operator import itemgetter
-import logging
 
 
 def generate_schedule(file_name, schedule_data, iteration_days, iteration_number, date_format, no_schedule_days,
@@ -53,8 +52,6 @@ def generate_schedule(file_name, schedule_data, iteration_days, iteration_number
             max_len = max(len(str(cell)) for row in sheet.values for cell in row)  # finds max value from all sheet cells
         for i in range(1, sheet.max_column+1):
             sheet.column_dimensions[get_column_letter(i)].width = max_len
-
-    logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
 
     # switch to cwd if passed as an argument
     if cwd:
@@ -121,7 +118,6 @@ def generate_schedule(file_name, schedule_data, iteration_days, iteration_number
         row += 1
 
     print(f"Recorded results into '{tasks_dates_sheet}' sheet")
-    logging.debug(all_tasks)
     set_column_width(tasks_schedule_sheet)
 
     # prepare task schedule and sort records
@@ -140,17 +136,15 @@ def generate_schedule(file_name, schedule_data, iteration_days, iteration_number
             schedule_sheet[f"{get_column_letter(col+1)}{row+1}"] = tasks_schedule[row][col]
 
     print(f"Recorded results into '{final_schedule_sheet}' sheet")
-    logging.debug(tasks_schedule)
     set_column_width(schedule_sheet)
 
     # record tasks that don't have date to new sheet
     re_create_sheet(wb, never_executed_tasks_sheet)
     not_scheduled_tasks_sheet = wb[never_executed_tasks_sheet]
     for col in range(len(tasks_without_date)):
-        not_scheduled_tasks_sheet[f"{get_column_letter(col+1)}1"] = tasks_without_date[col]
+        not_scheduled_tasks_sheet[f"A{col+1}"] = tasks_without_date[col]
 
     print(f"Recorded results into '{never_executed_tasks_sheet}' sheet")
-    logging.debug(tasks_without_date)
     set_column_width(not_scheduled_tasks_sheet)
 
     # save results in separate file to avoid original file corruption
@@ -172,7 +166,6 @@ if __name__ == "__main__":
     never_executed_tasks_sheet_name = "Tasks_never_executed"
     file_final = "Tasks_schedule_final.xlsx"
 
-    logging.disable(logging.CRITICAL)
     generate_schedule(file, file_data, iterations_days, iterations_number, date_formatting, do_not_schedule_days,
                       tasks_dates_sheet_name, final_schedule_sheet_name, never_executed_tasks_sheet_name, file_final,
                       working_directory)
