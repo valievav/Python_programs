@@ -1,9 +1,10 @@
 import os
 import openpyxl
 import logging
+from openpyxl.utils.cell import get_column_letter
 
 
-def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=None, file_name_keyword="", search_sheet=None):
+def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=None, file_name_keyword=None, search_sheet=None):
     """
     Finds excel files that contain certain keyword values.\n
     It iterates through all files from the specified directory including subfolders.\n
@@ -17,15 +18,29 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=Non
     :return:
     """
 
-    def search_keyword_in_file(wb, sheet_name, cell_keywords, abs_path):
+    def search_keyword_in_sheets(wb, sheet_name, cell_keywords, abs_path):
 
         for cell_keyword in cell_keywords:
-            for row in wb[sheet_name].values:
+            for row in wb[sheet_name].iter_rows():
                 for cell in row:
-                    if cell_keyword.lower() in str(cell).lower():
-                        print(f"    >>> Found keyword '{cell_keyword}': cell value '{cell}', sheet '{sheet_name}', file '{abs_path}'")
+                    if cell_keyword.lower() in str(cell.value).lower():
+                        print(f"    >>> FOUND KEYWORD '{cell_keyword}': cell value '{cell.value}', sheet '{sheet_name}'"
+                              f", coordinates '{get_column_letter(cell.column)}:{cell.row}', file [{abs_path}]")
 
-    logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
+    def search_keyword_in_file(abs_path, search_sheet):
+        # open file
+        try:
+            wb = openpyxl.load_workbook(abs_path)
+        except FileNotFoundError as err:
+            print(f"{err} for file '{file}'")
+        else:
+            # search keyword in excel values for specific sheet or for all sheets
+            if search_sheet:
+                if search_sheet in wb.sheetnames:
+                    search_keyword_in_sheets(wb, search_sheet, cell_keywords, abs_path)
+            else:
+                for active_sheet in wb.sheetnames:
+                    search_keyword_in_sheets(wb, active_sheet, cell_keywords, abs_path)
 
     # switch to cwd if passed as param
     if cwd:
@@ -50,22 +65,11 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=Non
                 logging.debug(f"Processing {abs_path} ...")
 
                 # search for files with keyword in name
-                if file_name_keyword.lower() in file.lower():
-
-                    # open file
-                    try:
-                        wb = openpyxl.load_workbook(abs_path)
-                    except FileNotFoundError as err:
-                        print(f"{err} for file '{file}'")
-                    else:
-
-                        # search keyword in excel values for specific sheet or for all sheets
-                        if search_sheet:
-                            if search_sheet in wb.sheetnames:
-                                search_keyword_in_file(wb, search_sheet, cell_keywords, abs_path)
-                        else:
-                            for active_sheet in wb.sheetnames:
-                                search_keyword_in_file(wb, active_sheet, cell_keywords, abs_path)
+                if file_name_keyword:
+                    if file_name_keyword.lower() in file.lower():
+                        search_keyword_in_file(abs_path, search_sheet)
+                else:
+                    search_keyword_in_file(abs_path, search_sheet)
 
     print("Process finished.")
 
@@ -74,9 +78,9 @@ if __name__ == "__main__":
     file_keyword = "file"
     search_keywords = ["Castlevania", "Final Fantasy"]
     sheet_name = "Sheet1"
-    working_directory = "D:\\Practice Python"
+    working_directory = "D:\\Practice Python\\Top Secret"
     exclusion_folder_name = "Top Secret"
 
-    logging.disable(logging.DEBUG)
-    find_files_with_keyword_values(search_keywords, cwd=working_directory, exclusion_folder=exclusion_folder_name)
+    logging.basicConfig(level=logging.CRITICAL, format=' %(asctime)s - %(levelname)s - %(message)s')
+    find_files_with_keyword_values(search_keywords, cwd=working_directory)
 
