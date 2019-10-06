@@ -2,9 +2,11 @@ import os
 import openpyxl
 import logging
 from openpyxl.utils.cell import get_column_letter
+import datetime
 
 
-def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=None, file_name_keyword=None, search_sheet=None):
+def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=None, file_name_keyword=None,
+                                   search_sheet=None):
     """
     Finds excel files that contain certain keyword values.\n
     It iterates through all files from the specified directory including subfolders.\n
@@ -19,13 +21,17 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=Non
     """
 
     def search_keyword_in_sheets(wb, sheet_name, cell_keywords, abs_path):
-
-        for cell_keyword in cell_keywords:
+        # creating generator for lazy cell iteration (memory efficient on big volumes)
+        def get_cell(wb, sheet_name):
             for row in wb[sheet_name].iter_rows():
                 for cell in row:
-                    if cell_keyword.lower() in str(cell.value).lower():
-                        print(f"    >>> FOUND KEYWORD '{cell_keyword}': cell value '{cell.value}', sheet '{sheet_name}'"
-                              f", coordinates '{get_column_letter(cell.column)}:{cell.row}', file [{abs_path}]")
+                    yield cell
+
+        for cell_keyword in cell_keywords:
+            for cell in get_cell(wb, sheet_name):
+                if cell_keyword.lower() in str(cell.value).lower():
+                    print(f"    >>> FOUND KEYWORD '{cell_keyword}': cell value '{cell.value}', sheet '{sheet_name}'"
+                          f", coordinates '{get_column_letter(cell.column)}:{cell.row}', file [{abs_path}]")
 
     def search_keyword_in_file(abs_path, search_sheet):
         # open file
@@ -41,6 +47,8 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=Non
             else:
                 for active_sheet in wb.sheetnames:
                     search_keyword_in_sheets(wb, active_sheet, cell_keywords, abs_path)
+
+    start = datetime.datetime.now()
 
     # switch to cwd if passed as param
     if cwd:
@@ -71,14 +79,16 @@ def find_files_with_keyword_values(cell_keywords, cwd=None, exclusion_folder=Non
                 else:
                     search_keyword_in_file(abs_path, search_sheet)
 
-    print("Process finished.")
+    finish = datetime.datetime.now()
+    time_spent = finish - start
+    print(f"Process finished. Time spent {time_spent}")
 
 
 if __name__ == "__main__":
     file_keyword = "file"
-    search_keywords = ["Castlevania", "Final Fantasy"]
+    search_keywords = ["Castle", "Final Fantasy"]
     sheet_name = "Sheet1"
-    working_directory = "D:\\Practice Python\\Top Secret"
+    working_directory = "D:\\PYTHON Practice"
     exclusion_folder_name = "Top Secret"
 
     logging.basicConfig(level=logging.CRITICAL, format=' %(asctime)s - %(levelname)s - %(message)s')
