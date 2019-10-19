@@ -95,7 +95,11 @@ def main():
                     }
 
     params_output = get_user_parameters_with_gui(params_input)
-    print(f"Param OUTPUT - {params_output}")
+
+    if not bool(params_output):  # is values submission was cancelled (Exit button)
+        print("Parameter values are empty. Exiting the program.")
+    else:
+        print(f"Param OUTPUT - {params_output}")
 
 
 if __name__ == "__main__":
