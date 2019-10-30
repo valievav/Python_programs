@@ -8,9 +8,19 @@ import send2trash
 
 # TODO desc to the functions
 
-def find_most_recent_folders(cwd: str, exclude_folders: list, same_date_priority_keyword: str):
+def find_all_most_recent_folders(cwd: str, exclude_folders: list, same_date_priority_keyword: str)-> list:
+    """
+    Returns ALL most recent folders in a directory.\n
+    The general flow of the function is next: find folders that start with 'YYYYMM' -> compare dates for such folders
+    withing the parent directory -> detect folder with most recent date.\n
+    If found YYYYMM folders with the same date - use priority keyword to determine which folder
+    should be considered the most recent one.
+    """
 
-    def exclude_folder_from_processing(current_folder: str, folders_to_exclude: list):
+    def exclude_folder_from_processing(current_folder: str, folders_to_exclude: list)-> bool:
+        """
+        Returns True flag if folder is in the exclusion list.
+        """
 
         exclude = False
         for folder in folders_to_exclude:
@@ -19,9 +29,18 @@ def find_most_recent_folders(cwd: str, exclude_folders: list, same_date_priority
                 exclude = True
         return exclude
 
-    def record_most_recent_folder(folders: list):
+    def find_one_most_recent_folder(folders: list)-> list:
+        """
+        Returns 1 most recent folder inside of the directory.\n
+        To do this it finds folders that start with YYYYMM,
+        parses date and determines the most recent one. Also it uses priority keyword if found several folders
+        with the same date.
+        """
 
-        def check_yyyymm_format(year_month: str, folder: str):
+        def check_yyyymm_format(year_month: str, folder: str)-> bool:
+            """
+            Validates correctness of the YYYYMM format.
+            """
             year = int(year_month[:4])
             month = int(year_month[4:])
             if 0 == month > 12:
@@ -68,7 +87,7 @@ def find_most_recent_folders(cwd: str, exclude_folders: list, same_date_priority
         if exclude_folder_from_processing(active_folder, exclude_folders):
             continue
 
-        most_recent_folder_data = record_most_recent_folder(subfolders)
+        most_recent_folder_data = find_one_most_recent_folder(subfolders)
         if most_recent_folder_data:
             most_recent_date = most_recent_folder_data[0]
             most_recent_folder = most_recent_folder_data[1]
@@ -82,9 +101,18 @@ def find_most_recent_folders(cwd: str, exclude_folders: list, same_date_priority
 
 
 def find_files_and_copy_data(cwd: str, target_folders: list, file_keywords: list, sheet_keywords: list,
-                             result_path: str, result_file_name: str, recreate_result_file=True):
+                             result_path: str, result_file_name: str, recreate_result_file=True)-> None:
+    """
+    Finds files and copies data from them into the result file.\n
+    The general flow of the function is next: find certain file based on the keyword -> find certain sheet
+    withing this file based on the keyword -> copy ALL data from matched sheet into newly created result file.
+    """
 
-    def keyword_match(elems, keywords: list):
+    def keyword_match(elems, keywords: list)-> dict:
+        """
+        Finds keyword matches for any list/str.\n
+        Returns dictionary {keyword:matched_element}.
+        """
 
         matches = {}
         if isinstance(elems, str):
@@ -97,10 +125,15 @@ def find_files_and_copy_data(cwd: str, target_folders: list, file_keywords: list
         return matches
 
     def record_data_to_sheet(result_file_abs_path: str, from_file_abs_path: str,
-                             sheet_name: str, data_to_record: iter):
+                             sheet_name: str, data_to_record: iter, recreate_file: bool)-> None:
+        """
+        Reads data from files and records it into result Excel file.\n
+        It uses recreate_file flag to determine whether to recreate result file anew or update it:
+        the new file only created on the first iteration, all next iterations update it.
+        """
 
         # remove old file only on the start of the program
-        if recreate_result_file and os.path.isfile(result_file_abs_path):
+        if recreate_file and os.path.isfile(result_file_abs_path):
             send2trash.send2trash(result_file_abs_path)
             print(f"MOVED TO TRASH old result file '{result_file_abs_path}'")
 
@@ -151,7 +184,8 @@ def find_files_and_copy_data(cwd: str, target_folders: list, file_keywords: list
                         # record data to result file sheet
                         file_abs_path = os.path.join(result_path, result_file_name)
                         record_data_to_sheet(result_file_abs_path=file_abs_path, from_file_abs_path=abs_path,
-                                             sheet_name=matched_keyword, data_to_record=row_data)
+                                             sheet_name=matched_keyword, data_to_record=row_data,
+                                             recreate_file=recreate_result_file)
                         recreate_result_file = False  # no dot recreate file (add data from processed files)
 
 
@@ -167,9 +201,9 @@ if __name__ == "__main__":
 
     print("Process started...")
     start = datetime.datetime.now()
-    most_recent_folders = find_most_recent_folders(cwd=init_path,
-                                                   exclude_folders=skip_folders,
-                                                   same_date_priority_keyword=priority_keyword,)
+    most_recent_folders = find_all_most_recent_folders(cwd=init_path,
+                                                       exclude_folders=skip_folders,
+                                                       same_date_priority_keyword=priority_keyword,)
     find_files_and_copy_data(cwd=init_path,
                              target_folders=most_recent_folders,
                              file_keywords=file_name_keywords,
