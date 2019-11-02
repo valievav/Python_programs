@@ -48,15 +48,15 @@ def find_all_latest_folders(cwd: str, exclude_folders: list, priority_keyword: s
                 logging.debug(f"DATE PARSING ERROR: actual MONTH - '{month}', expected MONTH in range (1-12)."
                               f"Skipping folder '{folder}'.")
                 return False
-            elif 2010 <= year > datetime.datetime.today().year:
-                logging.debug(f"DATE PARSING ERROR: actual YEAR - '{year}', expected YEAR in range (2010-now). "
+            elif 1900 <= year > datetime.datetime.today().year:
+                logging.debug(f"DATE PARSING ERROR: actual YEAR - '{year}', expected YEAR in range (1900-now). "
                               f"Skipping folder '{folder}'.")
                 return False
             else:
                 return True
 
         latest_folder_data = []
-        for folder in (_ for _ in folders):  # folders generator
+        for folder in (_ for _ in folders):  # generator
 
             # find YYYYMM match
             regex_match = re.match(r"^\d{6}", folder)
@@ -102,25 +102,38 @@ def copy_data_into_master_file(cwd: str, target_folders_data: list, file_keyword
     """
     Finds files that match keywords and copies data from them into Master file.\n
     The general flow of the function is next: find files that contain keyword in name in the provided directory ->
-    find sheet inside the file, that contain keyword in sheet name -> copy ALL data from matched sheet
-    into newly created Master file.
+    find sheets inside the file, that contain keyword in name -> copy ALL data from matched sheet
+    into newly created Master file.\n
+    If detected several files with the same keyword in 1 directory or several sheets with the same keyword in 1 file -
+    they are ignored and printed warning to fix the issue.
     """
 
-    def keyword_match(elems, keywords: list)-> dict:
+    def keyword_match(elements, keywords: list)-> dict:
         """
         Finds keyword matches for any list/str.\n
         Returns dictionary {keyword:matched_element}.
         """
 
         matches = {}
-        if isinstance(elems, str):
-            elems = [elems]  # list with 1 element - for file match case
+        if isinstance(elements, str):
+            elements = [elements]  # list with 1 element - for file match case
 
-        [matches.setdefault(keyword, elem) for keyword in keywords for elem in elems if keyword.lower() in elem.lower()]
+        # generator for all matches
+        keyword_elem = ([keyword, elem] for keyword in keywords for elem in elements if keyword.lower() in elem.lower())
+
+        for keyword, elem in keyword_elem:
+            if keyword not in matches.keys():
+                matches.setdefault(keyword, elem)
+
+            # warning if matched few elem with the same keyword (applicable to sheets match)
+            else:
+                logging.warning(f"Detected matching element for keyword '{keyword}' - '{elem}'. "
+                                f"Skipping it. Already processed - '{matches[keyword]}'. "
+                                f"PLEASE FIX - expected only 1 match!")
         return matches
 
     def record_data_to_sheet(parent_folder: str, current_folder_date: datetime, master_file_abs_path: str,
-                             from_file_abs_path: str, sheet_name: str, data_to_record: iter,
+                             from_file_abs_path: str, sheet_name: str, data_to_record: iter, from_sheet_name: str,
                              recreate_file: bool)-> None:
         """
         Reads data from file and records it into Master Excel file.\n
@@ -131,13 +144,13 @@ def copy_data_into_master_file(cwd: str, target_folders_data: list, file_keyword
         # remove old file only on the start of the program
         if recreate_file and os.path.isfile(master_file_abs_path):
             os.unlink(master_file_abs_path)
-            logging.debug(f"REMOVED old result file '{master_file_abs_path}'")
+            logging.debug(f"REMOVED old MASTER file '{master_file_abs_path}'")
 
         try:
             master_file_wb = openpyxl.load_workbook(master_file_abs_path)
         except FileNotFoundError:
             master_file_wb = openpyxl.Workbook()
-            logging.debug(f"CREATED new result file")
+            logging.debug(f"CREATED new MASTER file")
 
         # create sheet if not exists
         if sheet_name not in master_file_wb.sheetnames:
@@ -153,38 +166,50 @@ def copy_data_into_master_file(cwd: str, target_folders_data: list, file_keyword
                 record_line = metadata + row
                 master_file_sheet.append(record_line)  # append works only with iterables
         master_file_sheet.append([""])  # empty row to separate the data from different files
-        print(f"    RECORDED data from FILE '{from_file_abs_path}' into SHEET '{sheet_name}'")
+        print(f"    RECORDED data from FILE '{from_file_abs_path}', sheet '{from_sheet_name}' "
+              f"into MASTER SHEET '{sheet_name}'")
 
         master_file_wb.save(master_file_abs_path)
 
     # iterate through target folders to find matched file, sheet and copy data
     os.chdir(cwd)
-    for target_folder_date, target_folder in (_ for _ in target_folders_data):  # target_folders_data generator
+    for target_folder_date, target_folder in (_ for _ in target_folders_data):  # generator
         for active_folder, subfolders, files in os.walk(target_folder):
-            for file in (_ for _ in files):  # files generator
+            matched_file_in_folder = ""
+            for file in (_ for _ in files):  # generator
 
                 # match file
-                matched_file = keyword_match(elems=file, keywords=file_keywords)
+                matched_file = keyword_match(elements=file, keywords=file_keywords)
                 if matched_file:
+
+                    # warning if matched several files in 1 directory
+                    if matched_file_in_folder:
+                        logging.warning(f"Detected other matching file in the '{target_folder}' - "
+                                        f"'{file}'. Skipping it. Already processed - '{matched_file_in_folder}'. "
+                                        f"PLEASE FIX - expected only 1 match!"
+                                        )
+                        continue
+
+                    matched_file_in_folder = file
                     file_abs_path = os.path.join(os.getcwd(), active_folder, file)
                     wb = openpyxl.load_workbook(file_abs_path, read_only=True)
 
                     # match sheets
                     sheets = wb.sheetnames
-                    matched_sheets = keyword_match(elems=sheets, keywords=sheet_keywords)
+                    matched_sheets = keyword_match(elements=sheets, keywords=sheet_keywords)
 
                     for matched_keyword, matched_sheet in matched_sheets.items():
 
                         # read data from sheet
                         row_data = wb[matched_sheet].values
 
-                        # record data to result file sheet
+                        # record data to master file sheet
                         parent_folder_name = target_folder.split(os.sep)[0]
                         master_file_abs_path = os.path.join(master_file_path, master_file)
                         record_data_to_sheet(parent_folder=parent_folder_name, current_folder_date=target_folder_date,
                                              master_file_abs_path=master_file_abs_path, from_file_abs_path=file_abs_path,
                                              sheet_name=matched_keyword, data_to_record=row_data,
-                                             recreate_file=recreate_master_file)
+                                             from_sheet_name=matched_sheet, recreate_file=recreate_master_file)
                         recreate_master_file = False  # no dot recreate file (add data from processed files)
 
 
@@ -200,7 +225,8 @@ def main():
 
     print("Process started...")
     start = datetime.datetime.now()
-    logging.basicConfig(level=logging.CRITICAL, format=' %(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.WARNING, format=' %(asctime)s - %(levelname)s - %(message)s')
+
     latest_folders_data = find_all_latest_folders(cwd=search_path,
                                                   exclude_folders=skip_folders,
                                                   priority_keyword=priority_keyword,
