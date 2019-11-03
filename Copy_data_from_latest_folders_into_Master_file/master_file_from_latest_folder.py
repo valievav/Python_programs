@@ -214,24 +214,24 @@ def copy_data_into_master_file(cwd: str, target_folders_data: list, file_keyword
 
 
 def main():
-    search_path = r"D:\PYTHON Practice\Consolidate function folder"
+    source_path = os.path.join(os.getcwd(), "Test_data", "Source_folder")
     file_keywords = ["data"]
     sheet_keywords = ["detailed", "general"]
-    skip_folders = ["Skipper"]
-    priority_keyword = "redeliver"
+    skip_folders = ["Space skipper"]
+    priority_keyword = "updated"
 
-    destination_path = r"D:\PYTHON Practice\Consolidate function folder - result"
-    destination_file = "Consolidation results.xlsx"
+    destination_path = os.path.join(os.getcwd(), "Test_data", "Destination_folder")
+    destination_file = "Master_file.xlsx"
 
     print("Process started...")
     start = datetime.datetime.now()
     logging.basicConfig(level=logging.WARNING, format=' %(asctime)s - %(levelname)s - %(message)s')
 
-    latest_folders_data = find_all_latest_folders(cwd=search_path,
+    latest_folders_data = find_all_latest_folders(cwd=source_path,
                                                   exclude_folders=skip_folders,
                                                   priority_keyword=priority_keyword,
                                                   )
-    copy_data_into_master_file(cwd=search_path,
+    copy_data_into_master_file(cwd=source_path,
                                target_folders_data=latest_folders_data,
                                file_keywords=file_keywords,
                                sheet_keywords=sheet_keywords,
