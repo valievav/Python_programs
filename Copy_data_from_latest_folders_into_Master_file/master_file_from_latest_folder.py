@@ -192,25 +192,28 @@ def copy_data_into_master_file(cwd: str, target_folders_data: list, file_keyword
 
                     matched_file_in_folder = file
                     file_abs_path = os.path.join(os.getcwd(), active_folder, file)
-                    wb = openpyxl.load_workbook(file_abs_path, read_only=True)
+                    try:
+                        wb = openpyxl.load_workbook(file_abs_path, read_only=True)
+                    except FileNotFoundError:
+                        logging.warning(f"Cannot find file at path '{file_abs_path}'. PLEASE CHECK if file exists!")
+                    else:
+                        # match sheets
+                        sheets = wb.sheetnames
+                        matched_sheets = keyword_match(elements=sheets, keywords=sheet_keywords)
 
-                    # match sheets
-                    sheets = wb.sheetnames
-                    matched_sheets = keyword_match(elements=sheets, keywords=sheet_keywords)
+                        for matched_keyword, matched_sheet in matched_sheets.items():
 
-                    for matched_keyword, matched_sheet in matched_sheets.items():
+                            # read data from sheet
+                            row_data = wb[matched_sheet].values
 
-                        # read data from sheet
-                        row_data = wb[matched_sheet].values
-
-                        # record data to master file sheet
-                        parent_folder_name = target_folder.split(os.sep)[0]
-                        master_file_abs_path = os.path.join(master_file_path, master_file)
-                        record_data_to_sheet(parent_folder=parent_folder_name, current_folder_date=target_folder_date,
-                                             master_file_abs_path=master_file_abs_path, from_file_abs_path=file_abs_path,
-                                             sheet_name=matched_keyword, data_to_record=row_data,
-                                             from_sheet_name=matched_sheet, recreate_file=recreate_master_file)
-                        recreate_master_file = False  # no dot recreate file (add data from processed files)
+                            # record data to master file sheet
+                            parent_folder_name = target_folder.split(os.sep)[0]
+                            master_file_abs_path = os.path.join(master_file_path, master_file)
+                            record_data_to_sheet(parent_folder=parent_folder_name, current_folder_date=target_folder_date,
+                                                 master_file_abs_path=master_file_abs_path, from_file_abs_path=file_abs_path,
+                                                 sheet_name=matched_keyword, data_to_record=row_data,
+                                                 from_sheet_name=matched_sheet, recreate_file=recreate_master_file)
+                            recreate_master_file = False  # no dot recreate file (add data from processed files)
 
 
 def main():
