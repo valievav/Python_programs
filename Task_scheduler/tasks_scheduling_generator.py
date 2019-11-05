@@ -167,7 +167,6 @@ if __name__ == "__main__":
     file_final = "Tasks_schedule_final.xlsx"
 
     generate_schedule(file, file_data, iterations_days, iterations_number, date_formatting, do_not_schedule_days,
-                      tasks_dates_sheet_name, final_schedule_sheet_name, never_executed_tasks_sheet_name, file_final,
-                      working_directory)
+                      tasks_dates_sheet_name, final_schedule_sheet_name, never_executed_tasks_sheet_name, file_final)
 
 
