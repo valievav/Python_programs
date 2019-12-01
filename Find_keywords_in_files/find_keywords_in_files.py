@@ -8,8 +8,11 @@ import send2trash
 from openpyxl.utils.cell import get_column_letter
 
 
-def find_keywords_in_files(search_keywords: list, result_file: str, directory: str = None,
-                           exclusion_folders: list = None, file_name_keywords: list = None,
+def find_keywords_in_files(search_keywords: list,
+                           result_file: str,
+                           directory: str = None,
+                           exclusion_folders: list = None,
+                           file_name_keywords: list = None,
                            sheet_name_keywords: list = None):
     """
     Finds excel files that contain certain keyword values.\n
@@ -19,15 +22,20 @@ def find_keywords_in_files(search_keywords: list, result_file: str, directory: s
     Result of the search is displayed in stack trace as well as saved into the result file.\n
     """
 
-    def search_keywords_in_sheet(wb: openpyxl, sheet_name: str, search_keywords: list, file_abs_path: str):
+    def search_keywords_in_sheet(wb: openpyxl,
+                                 sheet_name: str,
+                                 search_keywords: list,
+                                 file_abs_path: str):
 
         Result = collections.namedtuple("Result", "keyword, cell_value, sheet, coordinates, file_abs_path")
         sheet_results = []
+        search_keywords = [keyword.lower() for keyword in search_keywords]  # preparing values for comparison
 
-        # find keywords in cells
-        for keyword in search_keywords:
-            for cell in (cell for row in wb[sheet_name].iter_rows() for cell in row if cell.value):
-                if keyword.lower() in str(cell.value).lower():
+        # find keywords in cells (iterating over cells first and then keywords for faster run)
+        cell_gen = (cell for row in wb[sheet_name].iter_rows() for cell in row if cell.value)
+        for cell in cell_gen:
+            for keyword in search_keywords:
+                if keyword in str(cell.value).lower():
                     result_cell = Result(keyword, cell.value, sheet_name,
                                          f'{get_column_letter(cell.column)}:{cell.row}', file_abs_path)
                     sheet_results.append(result_cell)
@@ -44,7 +52,9 @@ def find_keywords_in_files(search_keywords: list, result_file: str, directory: s
 
         return sheet_results
 
-    def record_results_into_file(results: list, result_file: str, recreate_file: bool):
+    def record_results_into_file(results: list,
+                                 result_file: str,
+                                 recreate_file: bool):
 
         # create new file on each run
         if recreate_file:
@@ -59,20 +69,21 @@ def find_keywords_in_files(search_keywords: list, result_file: str, directory: s
             logging.exception(f"Occurred exception {err} when trying to open file {result_file}.\n"
                               f"Please fix the issue!")
 
-    def search_keywords_in_file(file_abs_path: str, search_keywords: list, sheet_name_keywords: list = None):
+    def search_keywords_in_file(file_abs_path: str,
+                                search_keywords: list,
+                                sheet_name_keywords: list = None):
 
         try:
             wb = openpyxl.load_workbook(file_abs_path, read_only=True)
         except Exception as err:
             print(f"{err} for file '{file}'")
         else:
-
             # search keyword in all sheets or specific sheets
             if sheet_name_keywords:
                 search_sheets = [sheet for sheet in wb.sheetnames for keyword in sheet_name_keywords
                                  if keyword.lower() in sheet.lower()]
             else:
-                search_sheets = [sheet for sheet in wb.sheetnames]
+                search_sheets = wb.sheetnames
 
             file_results = []
             if search_sheets:
