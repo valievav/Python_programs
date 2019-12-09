@@ -2,12 +2,12 @@ import datetime
 import json
 import pprint
 import time
-from configparser import ConfigParser
 
 import requests
 
 
-def get_place_id(base_url: str, headers: dict, currency: str, search_city: str, search_country: str) -> dict:
+def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
+                 search_city: str, search_country: str) -> dict:
     """
      Returns list of place_ids (1 city can have different ids)
     """
@@ -26,7 +26,8 @@ def get_place_id(base_url: str, headers: dict, currency: str, search_city: str, 
 
 
 def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
-                               locale_lang: str, origin_place: str, destination_place: str, outbound_date: str)-> str:
+                               locale_lang: str, origin_place: str, destination_place: str, outbound_date: str,
+                               adults_number: int)-> str:
     """
      Creates Live Pricing Service Session that should be created before requesting price data.\n
      See detailed documentation -> https://skyscanner.github.io/slate/#flights-live-prices
@@ -74,7 +75,7 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str) -> 
             print(f'Response status - {result["Status"]}. Moving on to the response processing.')
             break
         else:
-            print(f"Occurred error {response.status_code} - {response.reason} - {response.content}. "
+            print(f"Occurred error {response.status_code} - {response.content['ValidationErrors'][0]['Message']}. "
                   f"Going to rerun function.")
             timer()
 
@@ -117,7 +118,7 @@ def get_min_price(results: dict):
 
 def get_live_api_prices(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
                         locale_lang: str, origin_place: str, destination_place: str, outbound_date: str,
-                        prices_count_threshold: int)-> None:
+                        adults_number: int, price_threshold: int, prices_count_threshold: int)-> None:
     """
     Gets Live API results and logs then into file.\n
     Live API retrieval consists of 2 parts: creating session and getting results.
@@ -127,7 +128,7 @@ def get_live_api_prices(base_url: str, headers: dict, cabin_class: str, country:
     # rerun function until full response retrieved successfully
     while True:
         session_key = live_prices_create_session(base_url, headers, cabin_class, country, currency, locale_lang,
-                                                 origin_place, destination_place, outbound_date)
+                                                 origin_place, destination_place, outbound_date, adults_number)
         all_results = live_prices_pull_results(base_url, headers, session_key)
 
         for results in all_results:
@@ -146,41 +147,4 @@ def get_live_api_prices(base_url: str, headers: dict, cabin_class: str, country:
                     price_threshold else print(f">>> No suitable flight. "
                     f"Min price {min_price} > threshold {price_threshold}.")
             break
-
-
-if __name__ == "__main__":
-    parser = ConfigParser()
-    parser.read('config.ini')
-    api_key = parser.get("API", "rapidapi_key")
-
-    base_url = "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/"
-    headers = {
-        'x-rapidapi-host': "skyscanner-skyscanner-flight-search-v1.p.rapidapi.com",
-        'x-rapidapi-key': api_key
-    }
-
-    search_city_from = "Krakow"
-    search_country_from = "Poland"
-    search_city_to = "Tokyo"
-    search_country_to = "Japan"
-
-    country = "PL"
-    currency = "UAH"
-    locale_lang = "en-US"
-
-    origin_place = "KRK-sky"
-    destination_place = "TYOA-sky"
-    outbound_date = "2019-12-21"
-    cabin_class = "Economy"
-    adults_number = 1
-
-    price_threshold = 15000
-    prices_count_threshold = 50
-
-    place_ids_from = get_place_id(base_url, headers, currency, search_city_from, search_country_from)
-    place_ids_to = get_place_id(base_url, headers, currency, search_city_to, search_country_to)
-    print(place_ids_from, place_ids_to)  # TODO - incorporate into program as step # 1
-
-    get_live_api_prices(base_url, headers, cabin_class, country, currency, locale_lang,
-                        origin_place, destination_place, outbound_date, prices_count_threshold)
 
