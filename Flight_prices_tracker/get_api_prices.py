@@ -1,15 +1,15 @@
-import datetime
 import json
-import pprint
+import logging
 import time
 
 import requests
 
 
 def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
-                 search_city: str, search_country: str) -> dict:
+                 search_city: str, search_country: str) -> str:
     """
-     Returns list of place_ids (1 city can have different ids)
+    Displays list of all place ids (1 city can have different ids)
+    and returns 1st element in the list as the most popular one.
     """
 
     url = f"{base_url}autosuggest/v1.0/{currency}/{currency}/{locale_lang}/"
@@ -17,12 +17,19 @@ def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
     response = requests.request("GET", url, headers=headers, params=querystring)
     result = json.loads(response.text)
 
-    place_ids = {}
+    # get all place ids
+    places = {}
     for location_data in result['Places']:
         if location_data['CountryName'].lower() == search_country.lower():
-            place_ids.setdefault(location_data['PlaceId'], location_data['PlaceName'])
+            places.setdefault(location_data['PlaceId'], location_data['PlaceName'])
 
-    return place_ids
+    # get first place id
+    if places:
+        place_ids = [place_id for place_id, place_name in places.items()]
+        logging.info(f"Available codes for {search_city}-{search_country}: {place_ids}. "
+                     f"Going to use 1st element from the list -> '{place_ids[0]}'")
+
+        return place_ids[0]
 
 
 def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
@@ -33,7 +40,7 @@ def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, c
      See detailed documentation -> https://skyscanner.github.io/slate/#flights-live-prices
     """
 
-    # rerun function until request is created successfully
+    # rerun until request is created successfully
     while True:
         url = f"{base_url}pricing/v1.0"
         payload = f"cabinClass={cabin_class}&country={country}&currency={currency}&locale={locale_lang}" \
@@ -46,9 +53,10 @@ def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, c
         try:
             response.raise_for_status()
             session_key = response.headers["Location"].split("/")[-1]
+            logging.info(f"CREATING SESSION STAGE - Session created successfully.")
             break
         except requests.exceptions.HTTPError as err:
-            print(f"Occurred error {err}. Going to rerun function.")
+            logging.error(f"    >>> CREATING SESSION STAGE - Occurred error '{err}'. RERUNNING function with delay.")
             timer()
 
     return session_key
@@ -59,30 +67,33 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str) -> 
     Returns Live API results of the previously created session.
     """
 
-    # rerun function until response pulled successfully
+    # rerun until response pulled successfully
     all_results = []
     while True:
         url = f"{base_url}pricing/uk2/v1.0/{session_key}?pageIndex=0&pageSize=20"
-        querystring = {"pageIndex": "0", "pageSize": "10"}
+        querystring = {"pageIndex": "0", "pageSize": "100"}
         response = requests.request("GET", url, headers=headers, params=querystring)
         result = json.loads(response.text)
 
         if response.status_code == 200:
-            if result["Status"] == "UpdatesPending":  # get next results pages
-                all_results.append(result)
-                print("Response have status 'UpdatesPending'. Requesting more results.")
+            all_results.append(result)
+            if result["Status"] == "UpdatesPending":  # get next scope results
+                logging.info("PULLING RESULTS STAGE - Got response 'UpdatesPending'. "
+                             "Requesting more results with delay.")
+                timer(0.5)
                 continue
-            print(f'Response status - {result["Status"]}. Moving on to the response processing.')
+            logging.info(f'PULLING RESULTS STAGE - Got response status - {result["Status"]}. '
+                         f'Recorded {len(all_results)} result requests. Moving on to the next stage.')
             break
         else:
-            print(f"Occurred error {response.status_code} - {response.content['ValidationErrors'][0]['Message']}. "
-                  f"Going to rerun function.")
+            logging.error(f"    >>> PULLING RESULTS ERROR: {response.status_code} - {response.content}. "
+                          f"RERUNNING function with delay.")
             timer()
 
     return all_results
 
 
-def timer(wait_time: int = 90)-> bool:
+def timer(wait_time: float = 90)-> bool:
     """
     Returns True when passed certain amount of seconds.
     """
@@ -106,12 +117,13 @@ def get_min_price(results: dict):
 
     for n in range(len(results["Itineraries"])):
         flight_itinerary = results["Itineraries"][n]["PricingOptions"][0]
+        prices_count += 1
+
         if not min_price:
             min_price = flight_itinerary["Price"]
         else:
             if min_price > flight_itinerary["Price"]:
                 min_price = flight_itinerary["Price"]
-                prices_count = n+1
 
     return prices_count, min_price
 
@@ -122,29 +134,43 @@ def get_live_api_prices(base_url: str, headers: dict, cabin_class: str, country:
     """
     Gets Live API results and logs then into file.\n
     Live API retrieval consists of 2 parts: creating session and getting results.
-    Reruns program if number of results is low (incomplete data).
+    Reruns program if number of results is low (incomplete data) or no results.
     """
 
-    # rerun function until full response retrieved successfully
+    # rerun until full response retrieved successfully
     while True:
+        # get session key and retrieve results
         session_key = live_prices_create_session(base_url, headers, cabin_class, country, currency, locale_lang,
                                                  origin_place, destination_place, outbound_date, adults_number)
         all_results = live_prices_pull_results(base_url, headers, session_key)
 
+        # rerun if no results
+        if not all_results:
+            logging.info("RERUNNING function - no results.")
+            continue
+
+        # find general prices count and min prices
+        all_prices_count = 0
+        all_min_prices = []
         for results in all_results:
             prices_count, min_price = get_min_price(results)
+            all_prices_count += prices_count
+            all_min_prices.append(min_price)
 
-            if prices_count <= prices_count_threshold:
-                continue
+            logging.debug(f"RESULT SCOPE # {len(all_min_prices)+1}:")
+            logging.debug(json.dumps(results))
 
-            # record results into log file
-            with open(f"Results_{datetime.datetime.now()}.txt".replace(":", "-"), "w") as file:
-                file.writelines(json.dumps(results))
+        # rerun if incomplete results
+        if all_prices_count <= prices_count_threshold:
+            logging.info("RERUNNING function - results are incomplete.")
+            continue
 
-            # print results and min price
-            pprint.pprint(results, width=1)
-            print(f">>> SUCCESS! Found flight price {min_price} < threshold {price_threshold}.") if min_price <= \
-                    price_threshold else print(f">>> No suitable flight. "
-                    f"Min price {min_price} > threshold {price_threshold}.")
-            break
+        # find min price
+        min_price = sorted(all_min_prices)[0]
+        logging.info(f">>> SUCCESS! Found flight price {min_price} < threshold {price_threshold}.") \
+            if min_price <= price_threshold else \
+            logging.info(f">>> No suitable flight. Min price {min_price} > threshold {price_threshold}.")
+        logging.info("Process finished.")
+
+        break
 
