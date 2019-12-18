@@ -1,8 +1,23 @@
+import datetime
 import json
 import logging
 import time
 
 import requests
+
+# record logs into file and print into the console
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+stream_handler = logging.StreamHandler()
+file_handler = logging.FileHandler(f"Logs_{datetime.datetime.now()}.log".replace(":", "-"))
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+stream_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 
 def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
@@ -26,7 +41,7 @@ def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
     # get first place id
     if places:
         place_ids = [place_id for place_id, place_name in places.items()]
-        logging.info(f"Available codes for {search_city}-{search_country}: {place_ids}. "
+        logger.info(f"Available codes for {search_city}-{search_country}: {place_ids}. "
                      f"Going to use 1st element from the list -> '{place_ids[0]}'")
 
         return place_ids[0]
@@ -53,10 +68,10 @@ def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, c
         try:
             response.raise_for_status()
             session_key = response.headers["Location"].split("/")[-1]
-            logging.info(f"CREATING SESSION STAGE - Session created successfully.")
+            logger.info(f"CREATING SESSION STAGE - Session created successfully.")
             break
         except requests.exceptions.HTTPError as err:
-            logging.error(f"    >>> CREATING SESSION STAGE - Occurred error '{err}'. RERUNNING function with delay.")
+            logger.exception(f"    >>> CREATING SESSION STAGE - Occurred error '{err}'. RERUNNING function with delay.")
             timer()
 
     return session_key
@@ -78,15 +93,15 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str) -> 
         if response.status_code == 200:
             all_results.append(result)
             if result["Status"] == "UpdatesPending":  # get next scope results
-                logging.info("PULLING RESULTS STAGE - Got response 'UpdatesPending'. "
+                logger.info("PULLING RESULTS STAGE - Got response 'UpdatesPending'. "
                              "Requesting more results with delay.")
                 timer(0.5)
                 continue
-            logging.info(f'PULLING RESULTS STAGE - Got response status - {result["Status"]}. '
+            logger.info(f'PULLING RESULTS STAGE - Got response status - {result["Status"]}. '
                          f'Recorded {len(all_results)} result requests. Moving on to the next stage.')
             break
         else:
-            logging.error(f"    >>> PULLING RESULTS ERROR: {response.status_code} - {response.content}. "
+            logger.exception(f"    >>> PULLING RESULTS ERROR: {response.status_code} - {response.content}. "
                           f"RERUNNING function with delay.")
             timer()
 
@@ -146,7 +161,7 @@ def get_live_api_prices(base_url: str, headers: dict, cabin_class: str, country:
 
         # rerun if no results
         if not all_results:
-            logging.info("RERUNNING function - no results.")
+            logger.info("RERUNNING function - no results.")
             continue
 
         # find general prices count and min prices
@@ -157,20 +172,20 @@ def get_live_api_prices(base_url: str, headers: dict, cabin_class: str, country:
             all_prices_count += prices_count
             all_min_prices.append(min_price)
 
-            logging.debug(f"RESULT SCOPE # {len(all_min_prices)+1}:")
-            logging.debug(json.dumps(results))
+            logger.debug(f"RESULT SCOPE # {len(all_min_prices)+1}:")
+            logger.debug(json.dumps(results))
 
         # rerun if incomplete results
         if all_prices_count <= prices_count_threshold:
-            logging.info("RERUNNING function - results are incomplete.")
+            logger.info("RERUNNING function - results are incomplete.")
             continue
 
         # find min price
         min_price = sorted(all_min_prices)[0]
-        logging.info(f">>> SUCCESS! Found flight price {min_price} < threshold {price_threshold}.") \
+        logger.info(f">>> SUCCESS! Found flight price {min_price} < threshold {price_threshold}.") \
             if min_price <= price_threshold else \
-            logging.info(f">>> No suitable flight. Min price {min_price} > threshold {price_threshold}.")
-        logging.info("Process finished.")
+            logger.info(f">>> No suitable flight. Min price {min_price} > threshold {price_threshold}.")
+        logger.info("Process finished.")
 
         break
 

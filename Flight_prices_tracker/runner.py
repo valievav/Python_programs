@@ -1,8 +1,6 @@
 from configparser import ConfigParser
 from get_api_prices import get_place_id
 from get_api_prices import get_live_api_prices
-import logging
-import datetime
 
 
 def main():
@@ -39,20 +37,13 @@ def main():
                                 locale_lang=locale_lang,
                                 search_city=search_city_from,
                                 search_country=search_country_from)
+
     destination_place = get_place_id(base_url=base_url,
                                      headers=headers,
                                      currency=currency,
                                      locale_lang=locale_lang,
                                      search_city=search_city_to,
                                      search_country=search_country_to)
-
-    # record logs into log file
-    log_file = f"Logs_{datetime.datetime.now()}.log".replace(":", "-")
-    logging.basicConfig(filename=log_file,
-                        level=logging.DEBUG,
-                        format=' %(asctime)s - %(levelname)s - %(message)s',
-                        filemode="w")
-    logging.getLogger().setLevel(logging.DEBUG)
 
     # run LIVE API search
     if origin_place and destination_place:
