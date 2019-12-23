@@ -137,7 +137,7 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
             all_results.append(result)
             if result["Status"] == "UpdatesPending":  # get next scope results
                 logger.debug(f"{stage_name} - Got response 'UpdatesPending'. Requesting more results after delay.")
-                timer(wait_time=20)  # wait for all results to be updated
+                timer(wait_time=10)  # wait for all results to be updated
                 continue
             logger.info(f'{stage_name} - Got response status - {result["Status"]}. '
                         f'Recorded {len(all_results)} result requests. Moving on to the next stage.')
@@ -145,6 +145,52 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
         else:
             try_number += 1
             retry(stage_name, try_number, max_retries, f"{response.status_code} - {response.content}")
+
+    return all_results
+
+
+def get_live_api_results(base_url: str, headers: dict, currency: str, locale_lang: str, city_from: str,
+                         country_from: str, city_to: str, country_to: str, max_retries: int, cabin_class: str,
+                         country: str, outbound_date: str, adults_count: int)-> iter:
+    """
+    Gets from-to city ids, creates Live API session and retrieves API results.
+    Returns API response as an iterable.
+    """
+
+    # get city ids
+    city_id_from = get_place_id(base_url=base_url,
+                                headers=headers,
+                                currency=currency,
+                                locale_lang=locale_lang,
+                                search_city=city_from,
+                                search_country=country_from,
+                                max_retries=max_retries)
+
+    city_id_to = get_place_id(base_url=base_url,
+                              headers=headers,
+                              currency=currency,
+                              locale_lang=locale_lang,
+                              search_city=city_to,
+                              search_country=country_to,
+                              max_retries=max_retries)
+
+    # run LIVE API search and get results
+    session_key = live_prices_create_session(base_url=base_url,
+                                             headers=headers,
+                                             cabin_class=cabin_class,
+                                             country=country,
+                                             currency=currency,
+                                             locale_lang=locale_lang,
+                                             origin_place=city_id_from,
+                                             destination_place=city_id_to,
+                                             outbound_date=outbound_date,
+                                             adults_count=adults_count,
+                                             max_retries=max_retries)
+
+    all_results = live_prices_pull_results(base_url=base_url,
+                                           headers=headers,
+                                           session_key=session_key,
+                                           max_retries=max_retries)
 
     return all_results
 
