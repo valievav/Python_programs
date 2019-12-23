@@ -6,9 +6,8 @@ import datetime
 import sys
 from configparser import ConfigParser
 
-from get_live_api_results import get_place_id
-from get_live_api_results import live_prices_create_session
-from get_live_api_results import live_prices_pull_results
+from debug_methods import get_api_results_from_file
+from get_live_api_results import get_live_api_results
 from process_api_results import get_all_prices
 from process_api_results import get_min_price
 from process_api_results import record_results_into_file
@@ -41,50 +40,34 @@ def main():
     max_retries = 3
     results_file_name = f"Results_{datetime.datetime.now()}.json".replace(":", "-")
 
-    # exit if date value is in the past
+    get_results_from_api = True
+
+    # check date validity before run
     if datetime.datetime.now().date() > datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date():
-        sys.exit(f" Outbound date {outbound_date} is in the past. Please fix.")
+        sys.exit(f"Outbound date {outbound_date} is in the past. Please fix.")
 
-    # get FROM and TO city ids
-    origin_place = get_place_id(base_url=base_url,
-                                headers=headers,
-                                currency=currency,
-                                locale_lang=locale_lang,
-                                search_city=city_from,
-                                search_country=country_from,
-                                max_retries=max_retries)
+    # get api results (from API for regular run or from file for process methods debug)
+    if get_results_from_api:
+        all_results = get_live_api_results(base_url=base_url,
+                                           headers=headers,
+                                           currency=currency,
+                                           locale_lang=locale_lang,
+                                           city_from=city_from,
+                                           country_from=country_from,
+                                           city_to=city_to,
+                                           country_to=country_to,
+                                           max_retries=max_retries,
+                                           cabin_class=cabin_class,
+                                           country=country,
+                                           outbound_date=outbound_date,
+                                           adults_count=adults_count
+                                           )
 
-    destination_place = get_place_id(base_url=base_url,
-                                     headers=headers,
-                                     currency=currency,
-                                     locale_lang=locale_lang,
-                                     search_city=city_to,
-                                     search_country=country_to,
-                                     max_retries=max_retries)
-
-    # run LIVE API search
-    if not (origin_place and destination_place):
-        sys.exit(f"Invalid value for origin_place - {origin_place}, destination_place - {destination_place}.")
+        record_results_into_file(file_name=results_file_name,
+                                 results=all_results)
     else:
-        session_key = live_prices_create_session(base_url=base_url,
-                                                 headers=headers,
-                                                 cabin_class=cabin_class,
-                                                 country=country,
-                                                 currency=currency,
-                                                 locale_lang=locale_lang,
-                                                 origin_place=origin_place,
-                                                 destination_place=destination_place,
-                                                 outbound_date=outbound_date,
-                                                 adults_count=adults_count,
-                                                 max_retries=max_retries)
-
-        all_results = live_prices_pull_results(base_url=base_url,
-                                               headers=headers,
-                                               session_key=session_key,
-                                               max_retries=max_retries)
-
-    record_results_into_file(file_name=results_file_name,
-                             results=all_results)
+        # get results from file to debug processing methods below
+        all_results = get_api_results_from_file("Results_2019-12-22 23-22-32.797673.json")
 
     all_prices = get_all_prices(results=all_results)
 

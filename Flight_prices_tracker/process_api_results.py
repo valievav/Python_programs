@@ -4,6 +4,7 @@ Contains methods for API results processing.
 
 import json
 import logging
+import sys
 
 from custom_logger import get_logger
 
@@ -53,6 +54,9 @@ def get_min_price(results: list, price_threshold: int, logger: logging.Logger)->
     """
 
     stage_name = "GET_MIN_PRICE"
+
+    if not results:
+        sys.exit("Results list is empty. Please fix")
 
     min_price = sorted(results)[0]
     if min_price <= price_threshold:
