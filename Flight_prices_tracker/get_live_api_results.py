@@ -37,7 +37,7 @@ def retry(stage_name, current_try, max_tries, err, logger)-> None:
         logger.error(f"{stage_name} - Try #{current_try} - Occurred error '{err}'. Rerunning after delay.")
         timer()
     else:
-        logger.error(f"{stage_name} - Try #{current_try}. Exiting the program.")
+        logger.critical(f"{stage_name} - Try #{current_try}. Exiting the program.")
         sys.exit()  # no point in running further if no results in N tries
 
 
@@ -71,7 +71,8 @@ def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
                     place_ids.append(location_data['PlaceId'])
 
             if not place_ids:
-                sys.exit(f"Place_ids list is empty. Please investigate and fix.")
+                logger.critical(f"{stage_name} - Place_ids list is empty! Exiting the program.")
+                sys.exit()
 
             # return 1st place id
             place_id = place_ids[0]
