@@ -7,6 +7,7 @@ import sys
 from configparser import ConfigParser
 
 from debug_methods import get_api_results_from_file
+from files_cleaner import files_cleaner
 from get_live_api_results import get_live_api_results
 from process_api_results import get_all_prices
 from process_api_results import get_min_price
@@ -32,7 +33,7 @@ def main():
     country = "PL"
     currency = "UAH"
     locale_lang = "en-US"
-    outbound_date = "2019-12-25"
+    outbound_date = "2020-01-01"
     cabin_class = "Economy"
     adults_count = 1
 
@@ -73,6 +74,9 @@ def main():
 
     get_min_price(results=all_prices,
                   price_threshold=price_threshold)
+
+    files_cleaner(extension='log', to_keep_number=5)
+    files_cleaner(extension='json', to_keep_number=10)
 
 
 if __name__ == "__main__":
