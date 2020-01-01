@@ -7,18 +7,20 @@ from custom_logger import get_logger
 
 
 @get_logger
-def files_cleaner(extension: str, logger: logging.Logger, to_keep_number: int = 3) -> None:
+def files_cleaner(extension: str, logger: logging.Logger, exception_file: str = None, to_keep_number: int = 3) -> None:
     """
     Cleans up old files and keeps the passed number of files only
     """
 
+    stage_name = 'CLEANUP_FILES'
+
     # find all files
     current_dir = os.getcwd()
-    files = [file for file in os.listdir(current_dir) if file.endswith(extension)]
-    logger.debug(f"Detected {len(files)} {extension} files")
+    files = [file for file in os.listdir(current_dir) if file.endswith(extension) and file != exception_file]
+    logger.debug(f"{stage_name} - Found {len(files)} {extension} files")
 
     if len(files) <= to_keep_number:  # do nothing if low number of files
-        logger.debug("Nothing to delete")
+        logger.debug(f"{stage_name} - No {extension} files to delete")
         return None
 
     # get created date for files
@@ -33,12 +35,12 @@ def files_cleaner(extension: str, logger: logging.Logger, to_keep_number: int = 
     # create to_keep list with file names only
     files_to_keep = [file_data[0] for file_data in sorted_files_with_dates[0:to_keep_number]]
     del sorted_files_with_dates[0:to_keep_number]
-    logger.debug(f"Remained {len(files_to_keep)} {extension} files  - {files_to_keep}")
+    logger.debug(f"{stage_name} - Remained {len(files_to_keep)} {extension} files  - {files_to_keep}")
 
     # create to_delete list with file names only
     files_to_delete = [file_data[0] for file_data in sorted_files_with_dates]
     del sorted_files_with_dates
     for file in files_to_delete:
         send2trash.send2trash(os.path.join(current_dir, file))
-    logger.debug(f"Deleted {len(files_to_delete)} {extension} files - {files_to_delete}")
+    logger.debug(f"{stage_name} - Deleted {len(files_to_delete)} {extension} files - {files_to_delete}")
 

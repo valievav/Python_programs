@@ -7,7 +7,7 @@ import datetime
 from custom_formatter import CustomFormatter
 
 
-def create_logger(level=logging.DEBUG):
+def create_logger(level=logging.DEBUG)-> logging.Logger:
     """
     Creates custom logger that records logs into file AND prints them into the console.
     Console records are colored using CustomFormatter.

@@ -18,16 +18,18 @@ def timer(logger: logging.Logger, wait_time: int = 60) -> None:
     Timer to count down certain number of seconds
     """
 
+    stage_name = "TIMER"
+
     now = time.time()
     timer_time = now + wait_time
     while now <= timer_time:
         time.sleep(1)
         now += 1
-    logger.debug(f"Passed {wait_time} sec")
+    logger.debug(f"{stage_name} - Passed {wait_time} sec")
 
 
 @get_logger
-def retry(stage_name, current_try, max_tries, err, logger)-> None:
+def retry(stage_name: str, current_try: int, max_tries: int, err: str, logger: logging.Logger)-> None:
     """
     Compares current run number with max run number and creates delay before the rerun.
     If max retries number is reached it exits the program.

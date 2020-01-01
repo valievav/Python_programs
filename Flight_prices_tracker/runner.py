@@ -42,6 +42,7 @@ def main():
     results_file_name = f"Results_{datetime.datetime.now()}.json".replace(":", "-")
 
     get_results_from_api = True
+    debug_results_file = 'Results_debug.json'
 
     # check date validity before run
     if datetime.datetime.now().date() > datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date():
@@ -68,15 +69,19 @@ def main():
                                  results=all_results)
     else:
         # get results from file to debug processing methods below
-        all_results = get_api_results_from_file("Results_2019-12-22 23-22-32.797673.json")
+        all_results = get_api_results_from_file(debug_results_file)
 
     all_prices = get_all_prices(results=all_results)
 
     get_min_price(results=all_prices,
                   price_threshold=price_threshold)
 
-    files_cleaner(extension='log', to_keep_number=5)
-    files_cleaner(extension='json', to_keep_number=10)
+    files_cleaner(extension='log',
+                  to_keep_number=10)
+
+    files_cleaner(extension='json',
+                  to_keep_number=5,
+                  exception_file=debug_results_file)
 
 
 if __name__ == "__main__":

@@ -31,18 +31,28 @@ def get_all_prices(results: dict, logger: logging.Logger)-> list:
     stage_name = "GET_PRICES"
     all_prices = []
 
-    itin_number = len(results)
-    logger.debug(f"{stage_name} - Number of itineraries - {len(results)}")
+    itin_numbers = len(results)
+    logger.info(f"{stage_name} - Number of itineraries - {len(results)}")
+    all_flights_count = 0
 
-    for itin in range(itin_number-1):  # results list has > 1 element if was 'Updates pending' status
-        flights_number = len(results[itin]["Itineraries"][0])
-        logger.debug(f"{stage_name} - Number of flights - {flights_number}")
+    for itin_number in range(itin_numbers):  # results list has > 1 element if was 'Updates pending' status
+        flights_data = results[itin_number]["Itineraries"]
+        flights_count = len(flights_data)
+        all_flights_count += flights_count
 
-        for flight_count in range(flights_number-1):
-            price = results[itin]["Itineraries"][flight_count]["PricingOptions"][0]["Price"]
-            all_prices.append(price)
+        for flight_number in range(flights_count):  # each itinerary has unique # of flights provided
+            flight_prices_data = flights_data[flight_number]["PricingOptions"]
+            flight_prices_count = len(flight_prices_data)
+            flight_price = 0
 
-    logger.info(f"{stage_name} - All prices list preparation finished.")
+            for price_number in range(flight_prices_count):  # each flight can have several legs (flights with stops)
+                leg_price = flight_prices_data[price_number]["Price"]
+                flight_price += leg_price
+
+            all_prices.append(round(flight_price, 2))
+
+    logger.info(f"{stage_name} - Number of flights - {all_flights_count}")
+    logger.info(f"{stage_name} - Prepared all prices list")
     logger.debug(f"{stage_name} - All prices count - {len(all_prices)}, values - {all_prices}")
     return all_prices
 
