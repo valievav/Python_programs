@@ -30,7 +30,7 @@ def files_cleaner(extension: str, logger: logging.Logger, exception_file: str = 
         str_date = datetime.datetime.fromtimestamp(epoch_date).strftime('%Y-%m-%d %H:%M:%S')
         files_with_dates.append([file, str_date])
 
-    sorted_files_with_dates = [data for data in sorted(files_with_dates, key=lambda elem: elem[1], reverse=True)]
+    sorted_files_with_dates = sorted(files_with_dates, key=lambda elem: elem[1], reverse=True)
 
     # create to_keep list with file names only
     files_to_keep = [file_data[0] for file_data in sorted_files_with_dates[0:to_keep_number]]
