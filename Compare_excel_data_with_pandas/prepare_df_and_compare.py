@@ -1,17 +1,9 @@
 import pandas as pd
 
 
-def get_df_from_excel_data(file: str, sheet_name: str, header: iter or int, index_col: iter or int)-> pd.DataFrame:
+def relocate_column_inplace(df: pd.DataFrame, column: str, index: int)->None:
     """
-    Imports all data from specified Excel sheet into dataframe
-    """
-    df = pd.read_excel(file, sheet_name=sheet_name, header=header, index_col=index_col)
-    return df
-
-
-def move_column_inplace(df: pd.DataFrame, column: str, index: int)->None:
-    """
-    Moves columns under specified location index
+    Relocates columns under specified index
     """
     col = df.pop(column)
     df.insert(index, col.name, col)
@@ -36,26 +28,45 @@ def remove_and_rename_columns(df: pd.DataFrame, remove_col_ident: str, rename_co
             df.rename({f'{column}': f'{column.replace(rename_col_ident, "")}'}, axis=1, inplace=True)
 
 
-def prepare_dataframes(file_1: str, file_2: str)->tuple:
+def prepare_dataframes(file_1: str, file_2: str, avg_sheet_name: str, cnt_sheet_name: str,
+                       general_sheet_name: str)->tuple:
     """
-    Uploads and reshapes dataframes into the common structure for the analysis
+    Uploads and reshapes dataframes into the common structure for the analysis.
+    Works only for dataframes with specific structure like so:
+
+    >> df1:
+            2019                  2018
+            overall metric... overall metric ...
+    name1   10     10          7        7
+    name2   2.5    2.5         7.25     7.25
+
+    >> df2:
+           year     metric_avg metric_cnt ...
+    name1  2019     12.5        10
+    name2  2019     3           15
+
+    >> result structure:
+           year     metric metric ...
+    name1  2019     12.5   7
+    name2  2019     3      7.25
+
     """
 
     # get averages df
-    df1_avg = get_df_from_excel_data(file=file_1, sheet_name='Analysis_averages', header=[1, 2], index_col=0)
+    df1_avg = pd.read_excel(io=file_1, sheet_name=avg_sheet_name, header=[1, 2], index_col=0)
     df1_avg = df1_avg.stack(level=0)  # arrange each year on top of each other
     prepare_multi_indexes(df1_avg)  # prepare 2 indexes ('Company' and 'Year')
-    move_column_inplace(df1_avg, 'Overall', 0)  # move 'Overall' column to the front
+    relocate_column_inplace(df1_avg, 'Overall', 0)  # move 'Overall' column to the front
 
     # get count df
-    df1_cnt = get_df_from_excel_data(file=file_1, sheet_name='Analysis_count', header=[1, 2], index_col=0)
+    df1_cnt = pd.read_excel(io=file_1, sheet_name=cnt_sheet_name, header=[1, 2], index_col=0)
     df1_cnt = df1_cnt.stack(level=0)
     prepare_multi_indexes(df1_cnt)
     print(df1_cnt)
-    move_column_inplace(df1_cnt, 'Overall', 0)
+    relocate_column_inplace(df1_cnt, 'Overall', 0)
 
     # get general averages+count df
-    df2_avg_cnt = get_df_from_excel_data(file=file_2, sheet_name='Analysis', header=1, index_col=[0, 1])
+    df2_avg_cnt = pd.read_excel(io=file_2, sheet_name=general_sheet_name, header=1, index_col=[0, 1])
 
     # create 2 separate df from the general one
     df2_avg = df2_avg_cnt.copy()
