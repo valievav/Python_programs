@@ -5,24 +5,38 @@ Contains methods for API results processing.
 import json
 import logging
 import sys
+import os
 
-from custom_logger import get_logger
+
+def get_api_results_from_file(file_name: str, logger: logging.Logger) -> iter:
+    """
+    Reads json data from file
+    """
+
+    stage_name = "READ_RESULTS_FROM_FILE"
+
+    try:
+        with open(file_name, "r") as file:
+            file_data = file.read()
+            results = json.loads(file_data)
+            logger.info(f"{stage_name} - Read data from '{file_name}'")
+            return results
+    except FileNotFoundError:
+        logger.critical(f"File {file_name} not found in the dir {os.getcwd()}")
 
 
-@get_logger
-def record_results_into_file(file_name: str, results: dict, logger: logging.Logger)-> None:
+def record_results_into_file(file_abs_path: str, results: dict, logger: logging.Logger)-> None:
     """
     Records dict into json file
     """
 
     stage_name = "RECORD_RESULTS_INTO_FILE"
 
-    with open(file_name, "w") as file:
+    with open(file_abs_path, "w") as file:
         json.dump(results, indent=4, fp=file)
-    logger.info(f"{stage_name} - Recorded results into '{file_name}'.")
+    logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split('/')[-1]}'.")
 
 
-@get_logger
 def get_all_prices(results: dict, logger: logging.Logger)-> list:
     """
     Returns all prices from result
@@ -57,7 +71,6 @@ def get_all_prices(results: dict, logger: logging.Logger)-> list:
     return all_prices
 
 
-@get_logger
 def get_min_price(results: list, price_threshold: int, logger: logging.Logger)-> None:
     """
     Returns min price from the list

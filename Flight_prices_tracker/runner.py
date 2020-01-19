@@ -3,15 +3,14 @@ Gets Live API results, logs then into file and finds min price.
 """
 
 import datetime
+import os
 import sys
 from configparser import ConfigParser
 
-from debug_methods import get_api_results_from_file
+from custom_logger import create_logger
 from files_cleaner import files_cleaner
-from get_live_api_results import get_live_api_results
-from process_api_results import get_all_prices
-from process_api_results import get_min_price
-from process_api_results import record_results_into_file
+from get_live_api_results import get_live_api_results, get_city_ids
+from process_api_results import get_all_prices, get_min_price, record_results_into_file, get_api_results_from_file
 
 
 def main():
@@ -33,55 +32,90 @@ def main():
     country = "PL"
     currency = "UAH"
     locale_lang = "en-US"
-    outbound_date = "2020-01-01"
     cabin_class = "Economy"
     adults_count = 1
 
+    outbound_date = "2020-02-01"
+    days_to_request = 3
+
     price_threshold = 15000
     max_retries = 3
-    results_file_name = f"Results_{datetime.datetime.now()}.json".replace(":", "-")
+
+    json_files_folder = "json_files"
+    log_files_folder = "log_files"
 
     get_results_from_api = True
     debug_results_file = 'Results_debug.json'
 
-    # check date validity before run
-    if datetime.datetime.now().date() > datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date():
-        sys.exit(f"Outbound date {outbound_date} is in the past. Please fix.")
+    cwd = os.getcwd()
+    log_file_abs_path = os.path.join(cwd, log_files_folder, f"Logs_{datetime.datetime.now()}.log".replace(":", "-"))
 
-    # get api results (from API for regular run or from file for process methods debug)
-    if get_results_from_api:
-        all_results = get_live_api_results(base_url=base_url,
-                                           headers=headers,
-                                           currency=currency,
-                                           locale_lang=locale_lang,
-                                           city_from=city_from,
-                                           country_from=country_from,
-                                           city_to=city_to,
-                                           country_to=country_to,
-                                           max_retries=max_retries,
-                                           cabin_class=cabin_class,
-                                           country=country,
-                                           outbound_date=outbound_date,
-                                           adults_count=adults_count
-                                           )
+    logger = create_logger(log_file_abs_path)
 
-        record_results_into_file(file_name=results_file_name,
-                                 results=all_results)
+    if get_results_from_api:  # get data from API or from file
+
+        # get city ids
+        city_id_from, city_id_to = get_city_ids(base_url=base_url,
+                                                headers=headers,
+                                                currency=currency,
+                                                locale_lang=locale_lang,
+                                                cities=[city_from, city_to],
+                                                countries=[country_from, country_to],
+                                                max_retries=max_retries,
+                                                logger=logger)
+
+        # get API data for N days
+        for n in range(days_to_request):
+            outbound_date_datetime = datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date()
+
+            # check date validity before run
+            if datetime.datetime.now().date() > outbound_date_datetime:
+                sys.exit(f"Outbound date {outbound_date_datetime} is in the past. Please fix.")
+
+            # get LIVE API results
+            all_results = get_live_api_results(base_url=base_url,
+                                               headers=headers,
+                                               cabin_class=cabin_class,
+                                               country=country,
+                                               currency=currency,
+                                               locale_lang=locale_lang,
+                                               city_id_from=city_id_from,
+                                               city_id_to=city_id_to,
+                                               outbound_date=outbound_date,
+                                               adults_count=adults_count,
+                                               max_retries=max_retries,
+                                               logger=logger)
+
+            # record results to file
+            json_file = f"Results_{outbound_date}_{city_id_from}-{city_id_to}_from_" \
+                f"{datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')}.json"
+            file_abs_path = os.path.join(os.getcwd(), json_files_folder, json_file)
+
+            record_results_into_file(file_abs_path=file_abs_path,
+                                     results=all_results,
+                                     logger=logger)
+            # find next date
+            next_outbound_date_datetime = outbound_date_datetime + datetime.timedelta(days=1)
+            outbound_date = next_outbound_date_datetime.strftime("%Y-%m-%d")
     else:
-        # get results from file to debug processing methods below
-        all_results = get_api_results_from_file(debug_results_file)
+        # get results from file to debug processing functions below
+        all_results = get_api_results_from_file(file_name=debug_results_file,
+                                                logger=logger)
 
-    all_prices = get_all_prices(results=all_results)
+    # process results
+    all_prices = get_all_prices(results=all_results,
+                                logger=logger)
 
     get_min_price(results=all_prices,
-                  price_threshold=price_threshold)
+                  price_threshold=price_threshold,
+                  logger=logger)
 
-    files_cleaner(extension='log',
-                  to_keep_number=10)
-
-    files_cleaner(extension='json',
-                  to_keep_number=5,
-                  exception_file=debug_results_file)
+    # clean up log files
+    log_path_to_clean = os.path.join(cwd, log_files_folder)
+    files_cleaner(path_to_clean=log_path_to_clean,
+                  extension='log',
+                  to_keep_number=10,
+                  logger=logger)
 
 
 if __name__ == "__main__":

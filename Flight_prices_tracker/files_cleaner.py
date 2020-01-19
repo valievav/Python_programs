@@ -3,20 +3,19 @@ import logging
 import os
 
 import send2trash
-from custom_logger import get_logger
 
 
-@get_logger
-def files_cleaner(extension: str, logger: logging.Logger, exception_file: str = None, to_keep_number: int = 3) -> None:
+def files_cleaner(path_to_clean: str, extension: str, logger: logging.Logger,
+                  exception_file: str = None, to_keep_number: int = 5) -> None:
     """
     Cleans up old files and keeps the passed number of files only
     """
 
     stage_name = 'CLEANUP_FILES'
+    os.chdir(path_to_clean)
 
     # find all files
-    current_dir = os.getcwd()
-    files = [file for file in os.listdir(current_dir) if file.endswith(extension) and file != exception_file]
+    files = [file for file in os.listdir('.') if file.endswith(extension) and file != exception_file]
     logger.debug(f"{stage_name} - Found {len(files)} {extension} files")
 
     if len(files) <= to_keep_number:  # do nothing if low number of files
@@ -41,6 +40,6 @@ def files_cleaner(extension: str, logger: logging.Logger, exception_file: str = 
     files_to_delete = [file_data[0] for file_data in sorted_files_with_dates]
     del sorted_files_with_dates
     for file in files_to_delete:
-        send2trash.send2trash(os.path.join(current_dir, file))
+        send2trash.send2trash(os.path.join(path_to_clean, file))
     logger.debug(f"{stage_name} - Deleted {len(files_to_delete)} {extension} files - {files_to_delete}")
 
