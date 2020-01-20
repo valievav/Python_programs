@@ -39,44 +39,58 @@ def retry(stage_name: str, current_try: int, max_tries: int, err: str, logger: l
         sys.exit()  # no point in running further if no results in N tries
 
 
-def get_place_id(base_url: str, headers: dict, currency: str, locale_lang: str,
-                 search_city: str, search_country: str, max_retries: int,
-                 logger: logging.Logger) -> str:
+def get_airport_ids(base_url: str, headers: dict, currency: str, locale_lang: str,
+                    search_cities: list, search_countries: list, max_retries: int,
+                    logger: logging.Logger) -> list:
     """
-    Gets list of all place ids (1 city can have different ids) and returns 1st element in the list.
+    Gets list of airport ids, where each element is 1st airport for search city-country combination responses
+    (1 city-country pair can have several airports).
     """
 
     stage_name = "GET_PLACE_ID"
     try_number = 0
 
-    url = f"{base_url}autosuggest/v1.0/{currency}/{currency}/{locale_lang}/"
-    querystring = {"query": {search_city}}
+    # compare if length of search lists is equal
+    if len(search_cities) != len(search_countries):
+        logger.warning(f"City and country lists length are different - {len(search_cities)} vs {len(search_countries)}."
+                       f"Cannot match all elements - please fix.")
 
-    # rerun if response unsuccessful
-    while True:
-        try:
-            response = requests.request("GET", url, headers=headers, params=querystring)
-            result = json.loads(response.text)
-        except Exception as exc:
-            try_number += 1
-            retry(stage_name, try_number, max_retries, exc, logger=logger)
-        else:
-            # get all place ids
-            place_ids = []
-            for location_data in result['Places']:
-                if location_data['CountryName'].lower() == search_country.lower():
-                    place_ids.append(location_data['PlaceId'])
+    airport_ids = []
 
-            if not place_ids:
-                logger.critical(f"{stage_name} - Place_ids list is empty! Exiting the program.")
-                sys.exit()
+    # get airport_ids for each search city-country pair
+    for (search_city, search_country) in zip(search_cities, search_countries):
 
-            # return 1st place id
-            place_id = place_ids[0]
-            logger.debug(f"{stage_name} - Available codes for {search_city}-{search_country}: {place_ids}. "
-                         f"Going to use 1st element from the list.")
-            logger.info(f"{stage_name} - {search_city}-{search_country} place id - '{place_id}'")
-            return place_id
+        url = f"{base_url}autosuggest/v1.0/{currency}/{currency}/{locale_lang}/"
+        querystring = {"query": {search_city}}
+
+        # rerun if response unsuccessful
+        while True:
+            try:
+                response = requests.request("GET", url, headers=headers, params=querystring)
+                result = json.loads(response.text)
+            except Exception as exc:
+                try_number += 1
+                retry(stage_name, try_number, max_retries, exc, logger=logger)
+            else:
+                # get all airport ids
+                location_airport_ids = []
+                for location_data in result['Places']:
+                    if location_data['CountryName'].lower() == search_country.lower():
+                        location_airport_ids.append(location_data['PlaceId'])
+
+                if not location_airport_ids:
+                    logger.critical(f"{stage_name} - Place_ids list is empty! Exiting the program.")
+                    sys.exit()
+
+                # return 1st elem
+                airport_id = location_airport_ids[0]
+                logger.debug(f"{stage_name} - Available codes for {search_city}-{search_country}: {location_airport_ids}. "
+                             f"Going to use 1st element from the list.")
+                logger.info(f"{stage_name} - {search_city}-{search_country} airport id - '{airport_id}'")
+                airport_ids.append(airport_id)
+                break
+
+    return airport_ids
 
 
 def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
@@ -143,31 +157,6 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
             retry(stage_name, try_number, max_retries, f"{response.status_code} - {response.content}", logger=logger)
 
     return all_results
-
-
-def get_city_ids(base_url: str, headers: dict, currency: str, locale_lang: str,
-                 cities: list, countries: list, max_retries: int, logger: logging.Logger) -> list:
-    """
-    Returns list of city ids
-    """
-    if len(cities) != len(countries):
-        logger.warning(f"City and country lists length are different - {len(cities)} vs {len(countries)}."
-                        f"Cannot match all elements - please fix.")
-
-    city_ids = list()
-
-    for (city, country) in zip(cities, countries):
-        city_id = get_place_id(base_url=base_url,
-                                headers=headers,
-                                currency=currency,
-                                locale_lang=locale_lang,
-                                search_city=city,
-                                search_country=country,
-                                max_retries=max_retries,
-                               logger=logger)
-        city_ids.append(city_id)
-
-    return city_ids
 
 
 def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,

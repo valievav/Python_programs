@@ -9,7 +9,7 @@ from configparser import ConfigParser
 
 from custom_logger import create_logger
 from files_cleaner import files_cleaner
-from get_live_api_results import get_live_api_results, get_city_ids
+from get_live_api_results import get_live_api_results, get_airport_ids
 from process_api_results import get_all_prices, get_min_price, record_results_into_file, get_api_results_from_file
 
 
@@ -55,18 +55,19 @@ def main():
     if get_results_from_api:  # get data from API or from file
 
         # get city ids
-        city_id_from, city_id_to = get_city_ids(base_url=base_url,
-                                                headers=headers,
-                                                currency=currency,
-                                                locale_lang=locale_lang,
-                                                cities=[city_from, city_to],
-                                                countries=[country_from, country_to],
-                                                max_retries=max_retries,
-                                                logger=logger)
+        city_id_from, city_id_to = get_airport_ids(base_url=base_url,
+                                                   headers=headers,
+                                                   currency=currency,
+                                                   locale_lang=locale_lang,
+                                                   search_cities=[city_from, city_to],
+                                                   search_countries=[country_from, country_to],
+                                                   max_retries=max_retries,
+                                                   logger=logger)
 
         # get API data for N days
         for n in range(days_to_request):
             outbound_date_datetime = datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date()
+            logger.info(f"Running API request for date -> {outbound_date}")
 
             # check date validity before run
             if datetime.datetime.now().date() > outbound_date_datetime:
