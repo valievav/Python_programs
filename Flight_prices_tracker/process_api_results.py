@@ -4,8 +4,9 @@ Contains methods for API results processing.
 
 import json
 import logging
-import sys
 import os
+import sys
+import pickle
 
 
 def get_api_results_from_file(file_name: str, logger: logging.Logger) -> iter:
@@ -87,4 +88,46 @@ def get_min_price(results: list, price_threshold: int, logger: logging.Logger)->
         logger.info(f"{stage_name} - SUCCESS! Found flight price {min_price} < threshold {price_threshold}.")
     else:
         logger.info(f"{stage_name} - No suitable flight. Min price {min_price} > threshold {price_threshold}.")
+
+
+def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
+    """
+    Pickles data into file as dictionary if key doesn't exists, else - updates pickled data
+    """
+
+    stage_name = "PICKLING DATA"
+
+    # get pickled data
+    with open(file_name, "rb") as file:
+        try:
+            pickled_data = pickle.load(file)
+        except EOFError:
+            pickled_data = None
+
+    # update pickled data if exists the same key
+    if pickled_data:
+        logger.debug(f"{stage_name} - Previously pickled data - {pickled_data} to be updated with {data_to_pickle}")
+        data_to_pickle = {**pickled_data, **data_to_pickle}  # 2nd dict overwrites values for common keys
+
+    # record new data or updated data into file
+    with open(file_name, "wb") as file:
+        pickle.dump(data_to_pickle, file, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.debug(f"{stage_name} - Pickled {data_to_pickle} into {file_name}")
+
+
+def unpickle_data(file_name: str, logger: logging.Logger) -> iter:
+    """
+    Retrieves pickled data from file
+    """
+
+    stage_name = "UNPICKLING DATA"
+
+    # retrieve pickled data if exists
+    with open(file_name, "rb") as file:
+        try:
+            data = pickle.load(file)
+            logger.debug(f"{stage_name} - Unpickled - {data} from {file_name}")
+            return data
+        except EOFError:
+            return None
 

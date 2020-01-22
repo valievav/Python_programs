@@ -7,10 +7,11 @@ import os
 import sys
 from configparser import ConfigParser
 
-from custom_logger import create_logger
-from files_cleaner import files_cleaner
-from get_live_api_results import get_live_api_results, get_airport_ids
-from process_api_results import get_all_prices, get_min_price, record_results_into_file, get_api_results_from_file
+from Flight_prices_tracker.custom_logger import create_logger
+from Flight_prices_tracker.files_cleaner import files_cleaner
+from Flight_prices_tracker.get_live_api_results import get_live_api_results, get_airport_ids
+from Flight_prices_tracker.process_api_results import get_all_prices, get_min_price, record_results_into_file, get_api_results_from_file
+from Flight_prices_tracker.process_api_results import pickle_data, unpickle_data
 
 
 def main():
@@ -46,6 +47,7 @@ def main():
 
     get_results_from_api = True
     debug_results_file = 'Results_debug.json'
+    pickle_file = 'Pickled_data.txt'
 
     cwd = os.getcwd()
     log_file_abs_path = os.path.join(cwd, log_files_folder, f"Logs_{datetime.datetime.now()}.log".replace(":", "-"))
@@ -66,8 +68,19 @@ def main():
 
         # get API data for N days
         for n in range(days_to_request):
+
+            # use pickled date if exists
+            pickled_data = unpickle_data(file_name=pickle_file,
+                                         logger=logger)
+            if pickled_data:
+                pickled_outbound_date = pickled_data[f"{city_id_from}-{city_id_to}"]
+                if pickled_outbound_date:
+                    outbound_date = pickled_outbound_date
+                    logger.info(f"Found pickled date. Running API request for it -> {pickled_outbound_date} ")
+                else:
+                    logger.info(f"No pickled date. Running API request for the passed date -> {outbound_date} ")
+
             outbound_date_datetime = datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date()
-            logger.info(f"Running API request for date -> {outbound_date}")
 
             # check date validity before run
             if datetime.datetime.now().date() > outbound_date_datetime:
@@ -98,6 +111,11 @@ def main():
             # find next date
             next_outbound_date_datetime = outbound_date_datetime + datetime.timedelta(days=1)
             outbound_date = next_outbound_date_datetime.strftime("%Y-%m-%d")
+
+            # pickle next date (process can resume from this point if occurred issue with API response during the run)
+            pickle_data(file_name=pickle_file,
+                        data_to_pickle={f"{city_id_from}-{city_id_to}": outbound_date},
+                        logger=logger)
     else:
         # get results from file to debug processing functions below
         all_results = get_api_results_from_file(file_name=debug_results_file,

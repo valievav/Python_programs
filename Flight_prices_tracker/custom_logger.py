@@ -3,7 +3,7 @@ Records logs both into file and prints into the console
 """
 
 import logging
-from custom_formatter import CustomFormatter
+from Flight_prices_tracker.custom_formatter import CustomFormatter
 
 
 def create_logger(log_file_abs_path: str, level=logging.DEBUG)-> logging.Logger:
