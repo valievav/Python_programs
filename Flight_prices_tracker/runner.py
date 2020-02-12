@@ -1,5 +1,5 @@
 """
-Gets Live API results, logs then into file and finds min price.
+Gets Live API results, records them into MongoDB, records into file and finds min price.
 """
 
 import datetime
@@ -12,10 +12,12 @@ from Flight_prices_tracker.files_cleaner import files_cleaner
 from Flight_prices_tracker.get_live_api_results import get_live_api_results, get_airport_ids
 from Flight_prices_tracker.process_api_results import get_all_prices, get_min_price, record_results_into_file, get_api_results_from_file
 from Flight_prices_tracker.process_api_results import pickle_data, unpickle_data
+from Flight_prices_tracker.mongodb import connect_to_mongodb, record_json_to_mongodb
 
 
 def main():
 
+    # rapidapi
     parser = ConfigParser()
     parser.read('config.ini')
     api_key = parser.get("API", "rapidapi_key")
@@ -25,26 +27,29 @@ def main():
         'x-rapidapi-key': api_key
     }
 
+    # mongodb
+    instance = 'mongodb://localhost:27017/'
+    db = 'skyskanner'
+    collection = 'itineraries'
+
+    # request params
     city_from = "Krakow"
     country_from = "Poland"
     city_to = "Tokyo"
     country_to = "Japan"
-
     country = "PL"
     currency = "UAH"
     locale_lang = "en-US"
     cabin_class = "Economy"
     adults_count = 1
+    outbound_date = "2020-03-01"
 
-    outbound_date = "2020-02-01"
+    # additional params
     days_to_request = 3
-
     price_threshold = 15000
     max_retries = 3
-
     json_files_folder = "json_files"
     log_files_folder = "log_files"
-
     get_results_from_api = True
     debug_results_file = 'Results_debug.json'
     pickle_file = 'Pickled_data.txt'
@@ -52,7 +57,12 @@ def main():
     cwd = os.getcwd()
     log_file_abs_path = os.path.join(cwd, log_files_folder, f"Logs_{datetime.datetime.now()}.log".replace(":", "-"))
 
+    # create logger and connect to db
     logger = create_logger(log_file_abs_path)
+    collection = connect_to_mongodb(mongodb_instance=instance,
+                                    mongodb=db,
+                                    mongodb_collection=collection,
+                                    logger=logger)
 
     if get_results_from_api:  # get data from API or from file
 
@@ -99,6 +109,11 @@ def main():
                                                adults_count=adults_count,
                                                max_retries=max_retries,
                                                logger=logger)
+
+            # record results into db
+            record_json_to_mongodb(json_data=all_results,
+                                   collection=collection,
+                                   logger=logger)
 
             # record results to file
             json_file = f"Results_{outbound_date}_{city_id_from}-{city_id_to}_from_" \
