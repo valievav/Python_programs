@@ -9,10 +9,10 @@ from configparser import ConfigParser
 
 from Flight_prices_tracker.custom_logger import create_logger
 from Flight_prices_tracker.files_cleaner import files_cleaner
-from Flight_prices_tracker.get_live_api_results import get_live_api_results, get_airport_ids
-from Flight_prices_tracker.process_api_results import get_all_prices, get_min_price, record_results_into_file, get_api_results_from_file
-from Flight_prices_tracker.process_api_results import pickle_data, unpickle_data
+from Flight_prices_tracker.get_live_api_results import get_live_api_results
 from Flight_prices_tracker.mongodb import connect_to_mongodb, record_json_to_mongodb
+from Flight_prices_tracker.process_api_results import get_all_prices, get_min_price, record_results_into_file
+from Flight_prices_tracker.process_api_results import get_api_results_from_file, pickle_data, get_pickled_outbound_date
 
 
 def main():
@@ -64,31 +64,22 @@ def main():
                                     mongodb_collection=collection,
                                     logger=logger)
 
-    if get_results_from_api:  # get data from API or from file
-
-        # get city ids
-        city_id_from, city_id_to = get_airport_ids(base_url=base_url,
-                                                   headers=headers,
-                                                   currency=currency,
-                                                   locale_lang=locale_lang,
-                                                   search_cities=[city_from, city_to],
-                                                   search_countries=[country_from, country_to],
-                                                   max_retries=max_retries,
-                                                   logger=logger)
+    # get data from API or from file
+    if get_results_from_api:
 
         # get API data for N days
         for n in range(days_to_request):
 
-            # use pickled date if exists
-            pickled_data = unpickle_data(file_name=pickle_file,
-                                         logger=logger)
-            if pickled_data:
-                pickled_outbound_date = pickled_data[f"{city_id_from}-{city_id_to}"]
-                if pickled_outbound_date:
-                    outbound_date = pickled_outbound_date
-                    logger.info(f"Found pickled date. Running API request for it -> {pickled_outbound_date} ")
-                else:
-                    logger.info(f"No pickled date. Running API request for the passed date -> {outbound_date} ")
+            # get outbound date from picked file (to continue where left off) or use passed date
+            pickled_outbound_date = get_pickled_outbound_date(pickle_file=pickle_file,
+                                                              city_from=city_from,
+                                                              city_to=city_to,
+                                                              logger=logger)
+            if pickled_outbound_date:
+                outbound_date = pickled_outbound_date
+                logger.info(f"Found pickled date. Running API request for -> {pickled_outbound_date} ")
+            else:
+                logger.info(f"No pickled date. Running API request for the passed date -> {outbound_date} ")
 
             outbound_date_datetime = datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date()
 
@@ -103,8 +94,10 @@ def main():
                                                country=country,
                                                currency=currency,
                                                locale_lang=locale_lang,
-                                               city_id_from=city_id_from,
-                                               city_id_to=city_id_to,
+                                               city_from=city_from,
+                                               city_to=city_to,
+                                               country_from=country_from,
+                                               country_to=country_to,
                                                outbound_date=outbound_date,
                                                adults_count=adults_count,
                                                max_retries=max_retries,
@@ -116,8 +109,7 @@ def main():
                                    logger=logger)
 
             # record results to file
-            json_file = f"Results_{outbound_date}_{city_id_from}-{city_id_to}_from_" \
-                f"{datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')}.json"
+            json_file = f"{datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')}_{city_from}-{city_to}_for_{outbound_date}.json"
             file_abs_path = os.path.join(os.getcwd(), json_files_folder, json_file)
 
             record_results_into_file(file_abs_path=file_abs_path,
@@ -129,7 +121,7 @@ def main():
 
             # pickle next date (process can resume from this point if occurred issue with API response during the run)
             pickle_data(file_name=pickle_file,
-                        data_to_pickle={f"{city_id_from}-{city_id_to}": outbound_date},
+                        data_to_pickle={f"{city_from}-{city_to}": outbound_date},
                         logger=logger)
     else:
         # get results from file to debug processing functions below

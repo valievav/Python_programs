@@ -160,13 +160,24 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
 
 
 def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
-                         locale_lang: str, city_id_from: str, city_id_to: str, outbound_date: str,
-                         adults_count: int, max_retries: int, logger: logging.Logger)-> iter:
+                         locale_lang: str, city_from: str, city_to: str, country_from: str, country_to: str,
+                         outbound_date: str, adults_count: int, max_retries: int, logger: logging.Logger)-> iter:
     """
-    Creates Live API session and retrieves API results.
-    Returns API response as an iterable.
+    Performs 3 steps to get Live API results: get city_id_from & city_id_to, create Live API session and
+    retrieve API results. Returns API response as an iterable.
     """
 
+    # get city ids
+    city_id_from, city_id_to = get_airport_ids(base_url=base_url,
+                                               headers=headers,
+                                               currency=currency,
+                                               locale_lang=locale_lang,
+                                               search_cities=[city_from, city_to],
+                                               search_countries=[country_from, country_to],
+                                               max_retries=max_retries,
+                                               logger=logger)
+
+    # create session
     session_key = live_prices_create_session(base_url=base_url,
                                              headers=headers,
                                              cabin_class=cabin_class,
@@ -180,6 +191,7 @@ def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country
                                              max_retries=max_retries,
                                              logger=logger)
 
+    # retrieve results
     all_results = live_prices_pull_results(base_url=base_url,
                                            headers=headers,
                                            session_key=session_key,
