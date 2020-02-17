@@ -3,11 +3,17 @@ Contains methods for Live API import.
 Live API retrieval consists of 2 parts: creating session and getting results.
 """
 
+import datetime
 import json
 import logging
+import os
+import pickle
 import sys
 import time
+import pymongo
 import requests
+from bson import json_util  # to record JSON to file after mongodb
+from Flight_prices_tracker.mongodb import record_json_to_mongodb
 
 
 def timer(logger: logging.Logger, wait_time: int = 60) -> None:
@@ -25,7 +31,7 @@ def timer(logger: logging.Logger, wait_time: int = 60) -> None:
     logger.debug(f"{stage_name} - Passed {wait_time} sec")
 
 
-def retry(stage_name: str, current_try: int, max_tries: int, err: str, logger: logging.Logger)-> None:
+def retry(stage_name: str, current_try: int, max_tries: int, err: Exception or str, logger: logging.Logger)-> None:
     """
     Compares current run number with max run number and creates delay before the rerun.
     If max retries number is reached it exits the program.
@@ -146,7 +152,7 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
         if response.status_code == 200:
             all_results.append(result)
             if result["Status"] == "UpdatesPending":  # get next scope results
-                logger.debug(f"{stage_name} - Got response 'UpdatesPending'. Requesting more results after delay.")
+                logger.info(f"{stage_name} - Got response 'UpdatesPending'. Requesting more results after delay.")
                 timer(wait_time=10, logger=logger)  # wait for all results to be updated
                 continue
             logger.info(f'{stage_name} - Got response status - {result["Status"]}. '
@@ -199,4 +205,133 @@ def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country
                                            logger=logger)
 
     return all_results
+
+
+def record_results_into_file(file_abs_path: str, results: iter, logger: logging.Logger)-> None:
+    """
+    Records dict into json file
+    """
+
+    stage_name = "RECORD_RESULTS_INTO_FILE"
+
+    with open(file_abs_path, "w") as file:
+        # json_util encoder after pymongo (else "not JSON serializable" error)
+        json.dump(results, indent=4, fp=file, default=json_util.default)
+    logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split('/')[-1]}'.")
+
+
+def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
+    """
+    Pickles data into file as dictionary if key doesn't exists, else - updates pickled data
+    """
+
+    stage_name = "PICKLING DATA"
+
+    # get pickled data
+    with open(file_name, "rb") as file:
+        try:
+            pickled_data = pickle.load(file)
+        except EOFError:
+            pickled_data = None
+
+    # update pickled data if exists the same key
+    if pickled_data:
+        logger.debug(f"{stage_name} - Updating pickled data - {pickled_data} with new value {data_to_pickle}")
+        data_to_pickle = {**pickled_data, **data_to_pickle}  # 2nd dict overwrites values for common keys
+
+    # record new data or updated data into file
+    with open(file_name, "wb") as file:
+        pickle.dump(data_to_pickle, file, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.info(f"{stage_name} - '{file_name}' content: {data_to_pickle}")
+
+
+def unpickle_data(file_name: str, logger: logging.Logger) -> iter:
+    """
+    Retrieves pickled data from file
+    """
+
+    stage_name = "UNPICKLING DATA"
+
+    # retrieve pickled data if exists
+    with open(file_name, "rb") as file:
+        try:
+            data = pickle.load(file)
+            logger.debug(f"{stage_name} - Unpickled {data} from '{file_name}'")
+            return data
+        except EOFError:
+            return None
+
+
+def get_pickled_outbound_date(pickle_file: str, city_from: str, city_to: str, logger: logging.Logger)-> str or None:
+    """
+    Retrieves pickled date from pickled file
+    """
+
+    pickled_data = unpickle_data(file_name=pickle_file,
+                                 logger=logger)
+
+    if pickled_data:
+        pickled_outbound_date = pickled_data[f"{city_from}-{city_to}"]
+        return pickled_outbound_date
+
+
+def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers: dict, cabin_class: str,
+                            country: str, currency: str, locale_lang: str, city_from: str, city_to: str,
+                            country_from: str, country_to: str, outbound_date: str, adults_count: int, max_retries: int,
+                            json_files_folder: str, json_file: str, collection: pymongo.collection.Collection,
+                            logger: logging.Logger, save_to_file: bool = False)-> None:
+    """
+    Runs get_live_api_results for N days, pickles last used date (to continue where left off
+    in case of interruption), records data to MongoDB and into file if passed True flag.
+    """
+
+    for n in range(days):
+
+        # get outbound date from picked file (to continue where left off) or use passed date
+        pickled_data = unpickle_data(file_name=pickle_file,
+                                     logger=logger)
+
+        outbound_date = pickled_data[f"{city_from}-{city_to}"] if pickled_data else outbound_date
+        logger.info(f"Running API request for -> {outbound_date}")
+        outbound_date_datetime = datetime.datetime.strptime(outbound_date, "%Y-%m-%d").date()
+
+        # check date validity before run
+        if datetime.datetime.now().date() > outbound_date_datetime:
+            sys.exit(f"Outbound date {outbound_date_datetime} is in the past. Please fix.")
+
+        # get LIVE API results
+        all_results = get_live_api_results(base_url=base_url,
+                                           headers=headers,
+                                           cabin_class=cabin_class,
+                                           country=country,
+                                           currency=currency,
+                                           locale_lang=locale_lang,
+                                           city_from=city_from,
+                                           city_to=city_to,
+                                           country_from=country_from,
+                                           country_to=country_to,
+                                           outbound_date=outbound_date,
+                                           adults_count=adults_count,
+                                           max_retries=max_retries,
+                                           logger=logger)
+
+        # record results into db
+        record_json_to_mongodb(json_data=all_results,
+                               collection=collection,
+                               logger=logger)
+
+        # record results into file
+        if save_to_file:
+            file_abs_path = os.path.join(os.getcwd(), json_files_folder, json_file.replace('xxx', outbound_date))
+            record_results_into_file(file_abs_path=file_abs_path,
+                                     results=all_results,
+                                     logger=logger)
+        # find next date
+        next_outbound_date_datetime = outbound_date_datetime + datetime.timedelta(days=1)
+        outbound_date = next_outbound_date_datetime.strftime("%Y-%m-%d")
+
+        # pickle next date (process can resume from this point on the next run)
+        pickle_data(file_name=pickle_file,
+                    data_to_pickle={f"{city_from}-{city_to}": outbound_date},
+                    logger=logger)
 

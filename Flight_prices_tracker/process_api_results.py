@@ -2,42 +2,8 @@
 Contains methods for API results processing.
 """
 
-import json
 import logging
-import os
 import sys
-import pickle
-from bson import json_util
-
-
-def get_api_results_from_file(file_name: str, logger: logging.Logger) -> iter:
-    """
-    Reads json data from file
-    """
-
-    stage_name = "READ_RESULTS_FROM_FILE"
-
-    try:
-        with open(file_name, "r") as file:
-            file_data = file.read()
-            results = json.loads(file_data)
-            logger.info(f"{stage_name} - Read data from '{file_name}'")
-            return results
-    except FileNotFoundError:
-        logger.critical(f"File {file_name} not found in the dir {os.getcwd()}")
-
-
-def record_results_into_file(file_abs_path: str, results: dict, logger: logging.Logger)-> None:
-    """
-    Records dict into json file
-    """
-
-    stage_name = "RECORD_RESULTS_INTO_FILE"
-
-    with open(file_abs_path, "w") as file:
-        # use json_util encoder after pymongo (prevent "not JSON serializable" error)
-        json.dump(results, indent=4, fp=file, default=json_util.default)
-    logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split('/')[-1]}'.")
 
 
 def get_all_prices(results: dict, logger: logging.Logger)-> list:
@@ -90,59 +56,4 @@ def get_min_price(results: list, price_threshold: int, logger: logging.Logger)->
         logger.info(f"{stage_name} - SUCCESS! Found flight price {min_price} < threshold {price_threshold}.")
     else:
         logger.info(f"{stage_name} - No suitable flight. Min price {min_price} > threshold {price_threshold}.")
-
-
-def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
-    """
-    Pickles data into file as dictionary if key doesn't exists, else - updates pickled data
-    """
-
-    stage_name = "PICKLING DATA"
-
-    # get pickled data
-    with open(file_name, "rb") as file:
-        try:
-            pickled_data = pickle.load(file)
-        except EOFError:
-            pickled_data = None
-
-    # update pickled data if exists the same key
-    if pickled_data:
-        logger.debug(f"{stage_name} - Previously pickled data - {pickled_data} to be updated with {data_to_pickle}")
-        data_to_pickle = {**pickled_data, **data_to_pickle}  # 2nd dict overwrites values for common keys
-
-    # record new data or updated data into file
-    with open(file_name, "wb") as file:
-        pickle.dump(data_to_pickle, file, protocol=pickle.HIGHEST_PROTOCOL)
-        logger.debug(f"{stage_name} - Pickled {data_to_pickle} into {file_name}")
-
-
-def unpickle_data(file_name: str, logger: logging.Logger) -> iter:
-    """
-    Retrieves pickled data from file
-    """
-
-    stage_name = "UNPICKLING DATA"
-
-    # retrieve pickled data if exists
-    with open(file_name, "rb") as file:
-        try:
-            data = pickle.load(file)
-            logger.debug(f"{stage_name} - Unpickled - {data} from {file_name}")
-            return data
-        except EOFError:
-            return None
-
-
-def get_pickled_outbound_date(pickle_file: str, city_from: str, city_to: str, logger:logging.Logger)-> str or None:
-    """
-    Retrieves pickled date from pickled file
-    """
-
-    pickled_data = unpickle_data(file_name=pickle_file,
-                                 logger=logger)
-
-    if pickled_data:
-        pickled_outbound_date = pickled_data[f"{city_from}-{city_to}"]
-        return pickled_outbound_date
 
