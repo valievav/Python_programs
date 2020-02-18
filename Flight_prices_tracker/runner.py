@@ -8,8 +8,7 @@ from configparser import ConfigParser
 from Flight_prices_tracker.custom_logger import create_logger
 from Flight_prices_tracker.files_cleaner import files_cleaner
 from Flight_prices_tracker.get_live_api_results import get_api_data_for_n_days
-from Flight_prices_tracker.mongodb import connect_to_mongodb
-from Flight_prices_tracker.process_api_results import get_all_prices, get_min_price
+from Flight_prices_tracker.mongodb import connect_to_mongodb, find_flights_with_low_prices
 
 
 def main():
@@ -84,14 +83,11 @@ def main():
                             logger=logger,
                             save_to_file=True)
 
-    # TODO - get prices from mongodb
-    # process results
-    all_prices = get_all_prices(results=all_results,
-                                logger=logger)
-
-    get_min_price(results=all_prices,
-                  price_threshold=price_threshold,
-                  logger=logger)
+    # find flights with price < threshold
+    find_flights_with_low_prices(threshold=price_threshold,
+                                 search_date=outbound_date,
+                                 collection=collection,
+                                 logger=logger)
 
     # clean up log files
     log_path_to_clean = os.path.join(cwd, log_files_folder)
