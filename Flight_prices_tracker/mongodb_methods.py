@@ -7,10 +7,11 @@ def connect_to_mongodb(mongodb_instance: str, mongodb: str, mongodb_collection: 
     """
     Connects to MongoDB and returns collection for further processing
     """
+    stage_name = "MONGODB"
     client = pymongo.MongoClient(mongodb_instance)
     db = client[mongodb]
     collection = db[mongodb_collection]
-    logger.info(f"Connected to MongoDB '{mongodb}', collection '{mongodb_collection}'.")
+    logger.info(f"{stage_name} - Connected to db '{mongodb}', collection '{mongodb_collection}'.")
     return collection
 
 
@@ -18,13 +19,14 @@ def record_json_to_mongodb(json_data: list, collection: pymongo.collection.Colle
     """
     Records JSON data to MongoDB
     """
+    stage_name = "MONGODB"
     result = collection.insert_many(json_data)
     if result.acknowledged:
-        logger.info(f"Recorded {len(json_data)} new results. Overall documents count - {collection.count_documents({})}")
-        logger.debug(f"Newly recorded IDS: {', '.join([str(id) for id in result.inserted_ids])}")
+        logger.info(f"{stage_name} - Recorded {len(json_data)} new results. Overall documents count - {collection.count_documents({})}")
+        logger.debug(f"{stage_name} - Newly recorded IDS: {', '.join([str(id) for id in result.inserted_ids])}")
         return True
     else:
-        logger.error(f"JSON was not recorded to DB")
+        logger.error(f"{stage_name} - JSON was not recorded to DB")
         return False
 
 
@@ -34,6 +36,7 @@ def find_flights_with_low_prices(threshold: int, search_date: str, collection: p
     Finds flights with price lower than a threshold and returns all info for such flights
     (along with link to order tickets).
     """
+    stage_name = "GET_MIN_PRICE"
 
     # calculate price for each itinerary (can have several Legs)
     price_per_flight_pipeline = [

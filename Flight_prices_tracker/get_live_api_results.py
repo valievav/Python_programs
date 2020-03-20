@@ -13,7 +13,7 @@ import time
 import pymongo
 import requests
 from bson import json_util  # to record JSON to file after mongodb
-from Flight_prices_tracker.mongodb import record_json_to_mongodb
+from Flight_prices_tracker.mongodb_methods import record_json_to_mongodb
 
 
 def timer(logger: logging.Logger, wait_time: int = 60) -> None:
@@ -225,7 +225,7 @@ def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) ->
     Pickles data into file as dictionary if key doesn't exists, else - updates pickled data
     """
 
-    stage_name = "PICKLING DATA"
+    stage_name = "PICKLE DATA"
 
     # get pickled data
     with open(file_name, "rb") as file:
@@ -250,7 +250,7 @@ def unpickle_data(file_name: str, logger: logging.Logger) -> iter:
     Retrieves pickled data from file
     """
 
-    stage_name = "UNPICKLING DATA"
+    stage_name = "UNPICKLE DATA"
 
     # retrieve pickled data if exists
     with open(file_name, "rb") as file:
