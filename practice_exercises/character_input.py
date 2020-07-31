@@ -5,7 +5,7 @@
 import datetime
 
 
-def ask_age():
+def year_you_turn_100() -> None:
     current_year = datetime.datetime.now().year
     name = input('Please enter your name.\n')
 
@@ -26,9 +26,8 @@ def ask_age():
         print('You already 100. Congratulations ! :)')
     else:
         result_year = current_year + (100 - age)
-
-        print(f'Hi {name}. You are going to turn 100 in {result_year} years.')
+        print(f'Hi {name}. You are going to turn 100 in {result_year}.')
 
 
 if __name__ == "__main__":
-    ask_age()
+    year_you_turn_100()

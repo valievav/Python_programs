@@ -11,10 +11,11 @@
 from typing import Tuple
 
 
-def rock_paper_scissors():
+def rock_paper_scissors() -> None:
 
     def get_input(choice: tuple) -> Tuple[str, str]:
-        user_name = input("Hi! let's play rock-paper-scissors. What's you'r name?\n")
+        user_name = input("Hi! Let's play rock-paper-scissors. What's you'r name?\n")
+
         while True:
             user_choice = input(f'Hi {user_name}. Please enter "rock", "paper" or "scissors".\n')
             if user_choice not in choice:
@@ -37,7 +38,6 @@ def rock_paper_scissors():
 
     user1_name, user1_choice = get_input(choice)
     user2_name, user2_choice = get_input(choice)
-
     determine_winner(user1_name, user1_choice, user2_name, user2_choice)
 
 
