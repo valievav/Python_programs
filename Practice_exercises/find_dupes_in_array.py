@@ -1,4 +1,5 @@
-# https://leetcode.com/problems/find-all-duplicates-in-an-array/
+# Task 1 -  find duplicates in an array of positive numbers
+# Task 2 - https://leetcode.com/problems/find-all-duplicates-in-an-array/
 # Given an array of integers, 1 ≤ a[i] ≤ n (n = size of array), some elements appear twice and others appear once.
 # Find all the elements that appear twice in this array.
 # Could you do it without extra space and in O(n) runtime?
@@ -12,9 +13,10 @@
 
 from collections import Counter
 from time import perf_counter
-from typing import List
+from typing import List, Set
 
 
+# TASK 1
 def solution_for_loop_and_2_lists(values: list) -> List[list]:
     """
     Use for loop and 2 lists to store unique and dupe values.
@@ -31,6 +33,27 @@ def solution_for_loop_and_2_lists(values: list) -> List[list]:
     return list(dupes)
 
 
+# TASK 1
+def solution_sorting(values: list) -> Set[int]:
+    # order list with bubble sort
+    while True:
+        values_swapped = False
+        for i in range(len(values) - 1):
+            if values[i] > values[i + 1]:
+                values[i], values[i + 1] = values[i + 1], values[i]
+                values_swapped = True
+        if not values_swapped:
+            break
+
+    # find neighbour dupes
+    dupes = set()
+    for i in range(len(values) - 1):
+        if values[i] == values[i + 1]:
+            dupes.add(values[i])
+    return dupes
+
+
+# TASK 1
 def solution_list_count(values: list) -> List[int]:
     """
     Use list comprehension with set to evaluate only unique elements and count() method of lists.
@@ -38,7 +61,7 @@ def solution_list_count(values: list) -> List[int]:
     return [v for v in set(values) if values.count(v) > 1]
 
 
-# PASSES LEETCODE SPEED TEST (372 ms, faster than 91.01% of submissions)
+# TASK 2 - PASSES LEETCODE SPEED TEST (372 ms, faster than 91.01% of submissions)
 def solution_counter(values: list) -> List[int]:
     """
     Use Counter form collections to get {value: count,..}.
@@ -46,7 +69,7 @@ def solution_counter(values: list) -> List[int]:
     return [item for item, count in Counter(values).items() if count > 1]
 
 
-# LEETCODE SOLUTION (400 ms, faster than 67.83% of submissions)
+# TASK 2 - LEETCODE SOLUTION (400 ms, faster than 67.83% of submissions)
 def solution_negative_value_using_index(values: list) -> List[int]:
     """
     Based on idea that if list has dupes then dupe elements will lead to the same index withing a list
@@ -66,16 +89,17 @@ def solution_negative_value_using_index(values: list) -> List[int]:
 
 
 if __name__ == "__main__":
-    solutions = {
-        1: solution_for_loop_and_2_lists,
-        2: solution_list_count,
-        3: solution_counter,
-        4: solution_negative_value_using_index,
-    }
-    example = [3, 3, 4, 4, 5, 1, 2, 9, 8]
+    solutions = [
+        solution_for_loop_and_2_lists,
+        solution_sorting,
+        solution_list_count,
+        solution_counter,
+        solution_negative_value_using_index,
+    ]
+    values_list = [3, 3, 4, 4, 5, 1, 2, 9, 8]
 
     start = perf_counter()
-    solution_used = solutions[2](example)
+    solution_used = solutions[4](values_list)
     print(f'Dupes are {solution_used}.')
 
     time_spent = perf_counter() - start
