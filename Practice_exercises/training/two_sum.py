@@ -41,7 +41,8 @@ def two_sum_binary_search(x: list, value: int) -> Optional[Tuple]:
                 high = mid - 1
 
 
-def two_sum_dict(x: list, value: int) -> Optional[Tuple]:
+# suitable for lists with NO DUPES
+def two_sum_dict_no_dupes(x: list, value: int) -> Optional[Tuple]:
     x.sort()
     hash = {item: x.index(item) for item in x}
 
@@ -51,13 +52,50 @@ def two_sum_dict(x: list, value: int) -> Optional[Tuple]:
             return index_1, index_2
 
 
-# two_sum = two_sum_naive_approach
-# two_sum = two_sum_binary_search
-two_sum = two_sum_dict
+# suitable for lists WITH DUPES
+def two_sum_dict_list_with_dupes(nums, target):
+        h = {}
+
+        for index1, value1 in enumerate(nums):
+            value2 = target - value1
+            index2 = h.get(value2)
+
+            if index2 != None:
+                return index2, index1
+
+            if value1 not in h:
+                h[value1] = index1
+
+
+x = [1, 5, 2, 3, 6]
+value = 11
+print(two_sum_dict_list_with_dupes(x, value))
+
 
 # TESTS
 x = [1, 5, 2, 3, 6]  # [1,2,3,5,6]
-assert two_sum(x, 7) == (0,4)
-assert two_sum(x, 3) == (0,1)
-assert two_sum(x, 11) == (3,4)
-assert two_sum(x, 20) == None   # negative case
+assert two_sum_naive_approach(x, 7) == (0,4)
+assert two_sum_naive_approach(x, 3) == (0,1)
+assert two_sum_naive_approach(x, 11) == (3,4)
+assert two_sum_naive_approach(x, 20) == None   # negative case
+
+# TESTS
+x = [1, 5, 2, 3, 6]  # [1,2,3,5,6]
+assert two_sum_binary_search(x, 7) == (0,4)
+assert two_sum_binary_search(x, 3) == (0,1)
+assert two_sum_binary_search(x, 11) == (3,4)
+assert two_sum_binary_search(x, 20) == None   # negative case
+
+# TESTS
+x = [1, 5, 2, 3, 6]  # [1,2,3,5,6]
+assert two_sum_dict_no_dupes(x, 7) == (0,4)
+assert two_sum_dict_no_dupes(x, 3) == (0,1)
+assert two_sum_dict_no_dupes(x, 11) == (3,4)
+assert two_sum_dict_no_dupes(x, 20) == None   # negative case
+
+# TESTS
+x = [1, 5, 2, 3, 6]
+assert two_sum_dict_list_with_dupes(x, 7) == (1,2)
+assert two_sum_dict_list_with_dupes(x, 3) == (0,2)
+assert two_sum_dict_list_with_dupes(x, 11) == (1,4)
+assert two_sum_dict_list_with_dupes(x, 20) == None   # negative case
