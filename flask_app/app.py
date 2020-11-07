@@ -1,12 +1,14 @@
-from datetime import datetime
+import os
 
+from datetime import datetime
 from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
 # db config and init
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'  # relative path
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 db = SQLAlchemy(app)
 
 
@@ -70,5 +72,4 @@ def update_task(id):
 
 
 if __name__ == "__main__":
-    db.create_all()
     app.run()
